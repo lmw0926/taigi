@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>語詞例句學習卡 - 自動序列版</title>
+  <title>語詞例句學習卡 - 聯動播放版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
@@ -31,12 +31,11 @@
     .card-front { border-left: 5px solid #007bff; }
     .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 5px solid #28a745; }
     
-    /* 收藏狀態樣式 */
     .word-card.starred-border { background-color: #fffdf0 !important; }
     .word-card.starred-border .card-front { border-left: 5px solid #f1c40f; }
 
-    /* 播放中高亮樣式 */
-    .playing-now { box-shadow: 0 0 20px #007bff !important; border: 2px solid #007bff !important; }
+    /* 播放中高亮 */
+    .playing-now { box-shadow: 0 0 15px #007bff !important; border: 2px solid #007bff !important; }
 
     .word-header { display: flex; align-items: center; justify-content: flex-start; margin-bottom: 8px; }
     .word-title { font-size: 1.4rem; color: #2c3e50; font-weight: bold; }
@@ -57,17 +56,15 @@
     
     .play-btn-sm {
       background: #3498db; color: white; border: none; border-radius: 4px;
-      font-size: 0.75rem; padding: 4px 10px; margin-left: 5px; vertical-align: middle;
-      transition: background 0.2s;
+      font-size: 0.7rem; padding: 2px 8px; margin-left: 5px; vertical-align: middle;
     }
-    .play-btn-sm:hover { background: #2980b9; }
 
     .play-icon-btn {
       background: #007bff; color: white; border-radius: 50%;
       width: 35px; height: 35px; display: flex;
       align-items: center; justify-content: center; border: none;
       font-size: 1rem; margin-right: 12px; flex-shrink: 0;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .star-btn { background: none; border: none; font-size: 1.5rem; color: #ccc; cursor: pointer; margin-left: 10px; padding: 0; line-height: 1; }
     .star-btn.active { color: #f1c40f; }
@@ -78,7 +75,7 @@
       padding: 10px 15px; display: none; z-index: 1000; border-top: 1px solid #dee2e6;
     }
     .player-flex { display: flex; align-items: center; gap: 10px; }
-    #current-word { font-weight: bold; font-size: 0.9rem; min-width: 130px; color: #007bff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #current-word { font-weight: bold; font-size: 0.9rem; min-width: 120px; color: #007bff; }
     audio { flex-grow: 1; height: 35px; }
   </style>
 </head>
@@ -88,7 +85,7 @@
   
   <div class="d-grid gap-2 mb-3">
     <button id="playAllBtn" class="btn btn-success fw-bold" onclick="playAllOnPage()">
-      🎧 播放本頁全部 (語詞 + 例句)
+      🎧 順序播放本頁所有 (語詞+例句)
     </button>
   </div>
 
@@ -119,7 +116,7 @@
     <div class="player-flex">
       <div id="current-word">尚未播放</div>
       <audio id="global-audio" controls></audio>
-      <button class="btn btn-sm btn-outline-danger" onclick="stopAutoPlay()">停止</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="stopSequence()">停止</button>
     </div>
   </div>
 
@@ -131,10 +128,9 @@
     const API_URL = "https://script.google.com/a/macros/guo.kh.edu.tw/s/AKfycbw_OHgjTJqP6OvnIYZl2L9XkkH_DacnLfcQHipsGX0EQg4OsU7dxo6LuH9862I-nSo_1g/exec"; 
 
     let currentSheet = "";
-    let currentPlaylist = [];
-    let currentIndex = 0;
-    let isPlayingExample = false; 
-    let isAutoPlaying = false;    
+    let playlist = [];
+    let playlistIdx = 0;
+    let isAutoNextWord = false; // 判斷是播放「單個(語詞+例句)」還是「全頁連續播放」
 
     async function init() {
       try {
@@ -154,12 +150,12 @@
           loadData();
         }
       } catch (err) {
-        document.getElementById('app').innerHTML = "連線失敗，請檢查 API 設定。";
+        document.getElementById('app').innerHTML = "連線失敗。";
       }
     }
 
     async function loadData() {
-      stopAutoPlay();
+      stopSequence();
       document.getElementById('app').innerHTML = `<div class="spinner-border text-primary"></div><p>載入 ${currentSheet} 中...</p>`;
       try {
         const [dataRes, catRes] = await Promise.all([
@@ -186,96 +182,109 @@
     }
 
     /**
-     * 播放音檔核心
+     * 核心播放邏輯
+     * @param {Object} item 播放的資料物件
+     * @param {Boolean} autoNext 是否在播完例句後自動播下一個單字
      */
-    function playAudio(url, displayName) {
+    function startWordSequence(item, autoNext = false) {
+      stopSequence(); // 先清除先前的播放
+      isAutoNextWord = autoNext;
+      
       const audioPlayer = document.getElementById('global-audio');
-      if (!url || url === "" || url === "null") return false;
-      
-      const finalUrl = url.trim().replace("dl=0", "raw=1");
       document.getElementById('player-container').style.display = 'block';
-      document.getElementById('current-word').innerText = displayName;
       
+      // 高亮卡片
+      document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now'));
+      const card = document.querySelector(`[data-id="${item.id}"]`);
+      if (card) card.classList.add('playing-now');
+
+      // 1. 播放語詞
+      if (item.wordAudio && item.wordAudio !== "null") {
+        playSingle(item.wordAudio, `📢 語詞：${item.word}`);
+        audioPlayer.onended = () => {
+          // 語詞完畢，準備播例句
+          if (item.exampleAudio && item.exampleAudio !== "null") {
+            setTimeout(() => {
+              playSingle(item.exampleAudio, `📖 例句：${item.word}`);
+              audioPlayer.onended = () => {
+                if (isAutoNextWord) {
+                  playNextInPlaylist();
+                } else {
+                  finishSequence();
+                }
+              };
+            }, 800); // 語詞與例句間隔 0.8s
+          } else {
+            if (isAutoNextWord) playNextInPlaylist(); else finishSequence();
+          }
+        };
+      } else if (item.exampleAudio && item.exampleAudio !== "null") {
+        // 沒有語詞音檔，直接播例句
+        playSingle(item.exampleAudio, `📖 例句：${item.word}`);
+        audioPlayer.onended = () => {
+          if (isAutoNextWord) playNextInPlaylist(); else finishSequence();
+        };
+      }
+    }
+
+    function playSingle(url, label) {
+      const audioPlayer = document.getElementById('global-audio');
+      const finalUrl = url.trim().replace("dl=0", "raw=1");
+      document.getElementById('current-word').innerText = label;
       audioPlayer.src = finalUrl;
-      audioPlayer.play().catch(e => console.log("播放被阻擋:", e));
-      return true;
+      audioPlayer.play().catch(e => console.log("播放失敗", e));
     }
 
     /**
-     * 播放本頁按鈕 (語詞 + 例句 循環)
+     * 播放全頁
      */
     function playAllOnPage() {
-      stopAutoPlay();
       const start = (currentPage - 1) * itemsPerPage;
-      currentPlaylist = filteredData.slice(start, start + itemsPerPage)
-                        .filter(item => (item.wordAudio && item.wordAudio !== "null") || (item.exampleAudio && item.exampleAudio !== "null"));
+      playlist = filteredData.slice(start, start + itemsPerPage)
+                 .filter(item => (item.wordAudio && item.wordAudio !== "null") || (item.exampleAudio && item.exampleAudio !== "null"));
       
-      if (currentPlaylist.length === 0) return alert("本頁無音檔可播放");
-      
-      isAutoPlaying = true;
-      currentIndex = 0;
-      isPlayingExample = false; 
-      playSequence();
+      if (playlist.length === 0) return alert("本頁無音檔");
+      playlistIdx = 0;
+      startWordSequence(playlist[playlistIdx], true);
     }
 
-    function playSequence() {
-      if (!isAutoPlaying || currentIndex >= currentPlaylist.length) {
-        document.getElementById('current-word').innerText = "✅ 播放完畢";
-        stopAutoPlay();
-        return;
-      }
-
-      const item = currentPlaylist[currentIndex];
-      const audioPlayer = document.getElementById('global-audio');
-
-      // 更新視覺高亮 (讓使用者知道播到哪一張卡片)
-      document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now'));
-      const activeCard = document.querySelector(`[data-id="${item.id}"]`);
-      if (activeCard) activeCard.classList.add('playing-now');
-
-      if (!isPlayingExample) {
-        // 第一步：播放語詞
-        if (item.wordAudio && item.wordAudio !== "null") {
-          playAudio(item.wordAudio, `📢 語詞：${item.word}`);
-          audioPlayer.onended = () => {
-            // 語詞播完，判斷是否有例句
-            if (item.exampleAudio && item.exampleAudio !== "null") {
-              isPlayingExample = true;
-              setTimeout(playSequence, 800); // 停頓 0.8 秒後播例句
-            } else {
-              nextGroup(); // 無例句，直接下一組
-            }
-          };
-        } else {
-          // 無語詞音檔，直接嘗試播例句
-          isPlayingExample = true;
-          playSequence();
-        }
+    function playNextInPlaylist() {
+      playlistIdx++;
+      if (playlistIdx < playlist.length) {
+        setTimeout(() => {
+          startWordSequence(playlist[playlistIdx], true);
+        }, 1500); // 單字組間隔 1.5s
       } else {
-        // 第二步：播放例句
-        if (item.exampleAudio && item.exampleAudio !== "null") {
-          playAudio(item.exampleAudio, `📖 例句：${item.word}`);
-          audioPlayer.onended = () => nextGroup();
-        } else {
-          nextGroup();
-        }
+        document.getElementById('current-word').innerText = "✅ 全頁播放完畢";
+        finishSequence();
       }
     }
 
-    function nextGroup() {
-      currentIndex++;
-      isPlayingExample = false;
-      if (isAutoPlaying) {
-        setTimeout(playSequence, 1500); // 組與組之間停頓 1.5 秒
-      }
-    }
-
-    function stopAutoPlay() {
-      isAutoPlaying = false;
+    function stopSequence() {
       const audioPlayer = document.getElementById('global-audio');
       audioPlayer.pause();
       audioPlayer.onended = null;
+      isAutoNextWord = false;
       document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now'));
+    }
+
+    function finishSequence() {
+      document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now'));
+    }
+
+    /**
+     * 單獨播放例句 (不聯動語詞)
+     */
+    function playOnlyExample(url, name, id) {
+      stopSequence();
+      document.getElementById('player-container').style.display = 'block';
+      
+      // 高亮
+      const card = document.querySelector(`[data-id="${id}"]`);
+      if (card) card.classList.add('playing-now');
+
+      playSingle(url, `📖 例句：${name}`);
+      document.getElementById('global-audio').onended = finishSequence;
     }
 
     function render() {
@@ -290,7 +299,6 @@
       let html = '';
       pagedData.forEach((item) => {
         const isStarred = starredList.includes(String(item.id));
-        const starClass = isStarred ? 'active' : '';
         const starredCardClass = isStarred ? 'starred-border' : '';
 
         html += `
@@ -298,9 +306,9 @@
             <div class="word-card ${starredCardClass}" data-id="${item.id}" onclick="flipCard(this)">
               <div class="card-front">
                 <div class="word-header">
-                  <button class="play-icon-btn" onclick="event.stopPropagation(); stopAutoPlay(); playAudio('${item.wordAudio}', '📢 ${item.word}')">▶</button>
+                  <button class="play-icon-btn" onclick="event.stopPropagation(); startWordSequence(${JSON.stringify(item).replace(/"/g, '&quot;')})">▶</button>
                   <span class="word-title">${item.word}</span>
-                  <button class="star-btn ${starClass}" onclick="toggleStar('${item.id}', event)">★</button>
+                  <button class="star-btn ${isStarred ? 'active' : ''}" onclick="toggleStar('${item.id}', event)">★</button>
                   <span class="word-no">#${item.id}</span>
                 </div>
                 <div class="ipa-text" style="margin-left: 47px;">[ ${item.ipa || ''} ]</div>
@@ -309,7 +317,7 @@
                 </div>
                 <div class="example-box">
                   <span class="example-label">例句：
-                    <button class="play-btn-sm" onclick="event.stopPropagation(); stopAutoPlay(); playAudio('${item.exampleAudio}', '📖 例句：${item.word}')">🔊 播放</button>
+                    <button class="play-btn-sm" onclick="event.stopPropagation(); playOnlyExample('${item.exampleAudio}', '${item.word}', '${item.id}')">🔊 播放</button>
                   </span>
                   ${item.example || '（暫無例句）'}
                 </div>
@@ -361,7 +369,7 @@
     }
 
     function filterByCategory(cat) {
-      stopAutoPlay();
+      stopSequence();
       if (cat === "all") filteredData = allData;
       else if (cat === "my_stars") {
         const list = getStarredList();
