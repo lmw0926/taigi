@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>語詞例句學習卡 - 智能續播版</title>
+  <title>語詞例句學習卡 - 極速快取版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
@@ -127,102 +127,135 @@
     let isAutoPlaying = false; 
 
     async function init() {
+      // 嘗試從快取讀取頁籤列表，提升啟動速度
+      const cachedSheets = localStorage.getItem('cache_sheet_names');
+      if (cachedSheets) {
+        setupSheetButtons(JSON.parse(cachedSheets));
+      }
+
       try {
         const response = await fetch(`${API_URL}?action=getSheets`);
         const names = await response.json();
         if (names && names.length > 0) {
-          const btnContainer = document.getElementById('sheet-buttons');
-          btnContainer.innerHTML = '';
-          names.forEach((name, index) => {
-            const btn = document.createElement('button');
-            btn.innerText = name;
-            btn.className = (index === 0) ? "btn btn-primary" : "btn btn-outline-primary";
-            btn.onclick = () => switchSheet(name);
-            btnContainer.appendChild(btn);
-          });
-          currentSheet = names[0];
-          loadData();
+          localStorage.setItem('cache_sheet_names', JSON.stringify(names));
+          setupSheetButtons(names);
         }
       } catch (err) {
-        document.getElementById('app').innerHTML = "連線失敗。";
+        if (!cachedSheets) document.getElementById('app').innerHTML = "連線失敗。";
+      }
+    }
+
+    function setupSheetButtons(names) {
+      const btnContainer = document.getElementById('sheet-buttons');
+      const prevActive = currentSheet;
+      btnContainer.innerHTML = '';
+      names.forEach((name, index) => {
+        const btn = document.createElement('button');
+        btn.innerText = name;
+        // 如果是初始狀態則選第一個，否則維持當前選中的樣式
+        btn.className = (!prevActive && index === 0) || (name === prevActive) ? "btn btn-primary" : "btn btn-outline-primary";
+        btn.onclick = () => switchSheet(name);
+        btnContainer.appendChild(btn);
+      });
+      if (!currentSheet) {
+        currentSheet = names[0];
+        loadData();
       }
     }
 
     async function loadData() {
+      const cacheKey = `cache_data_${currentSheet}`;
+      const cachedData = localStorage.getItem(cacheKey);
+      
       stopSequence();
-      document.getElementById('app').innerHTML = `<div class="spinner-border text-primary"></div><p>載入 ${currentSheet} 中...</p>`;
+
+      // 1. 優先顯示快取
+      if (cachedData) {
+        allData = JSON.parse(cachedData);
+        filteredData = allData;
+        render();
+        console.log(`[${currentSheet}] 從快取快速載入`);
+      } else {
+        document.getElementById('app').innerHTML = `<div class="spinner-border text-primary"></div><p>載入中...</p>`;
+      }
+
       try {
+        // 2. 並行請求資料與分類
         const [dataRes, catRes] = await Promise.all([
           fetch(`${API_URL}?sheet=${currentSheet}`),
-          fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`)
+          fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`).catch(() => null)
         ]);
-        allData = await dataRes.json();
-        const categories = await catRes.json();
-        const select = document.getElementById('categorySelect');
-        select.innerHTML = '<option value="all">全部類別</option><option value="my_stars">⭐ 我的收藏</option>';
-        categories.forEach(cat => {
-          const opt = document.createElement('option');
-          opt.value = opt.innerText = cat;
-          select.appendChild(opt);
-        });
-        filteredData = allData;
-        currentPage = 1;
-        render();
+
+        const newData = await dataRes.json();
+        
+        // 3. 只有當新舊資料不一致時才更新畫面，避免閃爍
+        if (JSON.stringify(newData) !== cachedData) {
+          allData = newData;
+          filteredData = allData;
+          localStorage.setItem(cacheKey, JSON.stringify(allData));
+          render();
+        }
+
+        if (catRes) {
+          const categories = await catRes.json();
+          updateCategoryUI(categories);
+        }
       } catch (err) {
-        document.getElementById('app').innerHTML = "資料載入出錯。";
+        console.error("更新失敗:", err);
+        if (!cachedData) document.getElementById('app').innerHTML = "載入失敗，請檢查網路連接。";
       }
     }
 
-    /**
-     * 重大修正：當點擊單張卡片播放鈕時，
-     * 強制重新初始化播放清單索引，並啟動續播邏輯。
-     */
+    function updateCategoryUI(categories) {
+      const select = document.getElementById('categorySelect');
+      const currentVal = select.value;
+      select.innerHTML = '<option value="all">全部類別</option><option value="my_stars">⭐ 我的收藏</option>';
+      categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = opt.innerText = cat;
+        select.appendChild(opt);
+      });
+      if ([...select.options].some(o => o.value === currentVal)) {
+        select.value = currentVal;
+      }
+    }
+
     function jumpToAndPlay(targetId) {
-      // 1. 先獲取目前頁面的可播放清單
       const start = (currentPage - 1) * itemsPerPage;
       playlist = filteredData.slice(start, start + itemsPerPage)
                  .filter(item => (item.wordAudio && item.wordAudio !== "null") || (item.exampleAudio && item.exampleAudio !== "null"));
-      
-      // 2. 找到點擊的項目索引
       const idx = playlist.findIndex(item => String(item.id) === String(targetId));
-      
       if (idx !== -1) {
-        stopSequence(); // 徹底停止之前的播放
+        stopSequence();
         playlistIdx = idx;
-        isAutoPlaying = true; // 強制啟動續播開關
+        isAutoPlaying = true;
         startWordSequence(playlist[playlistIdx]);
       }
     }
 
     function startWordSequence(item) {
       if (!isAutoPlaying) return;
-      
       const audioPlayer = document.getElementById('global-audio');
       document.getElementById('player-container').style.display = 'block';
-      
-      // 視覺高亮
       document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now'));
       const card = document.querySelector(`[data-id="${item.id}"]`);
       if (card) card.classList.add('playing-now');
 
-      // 階段一：用語詞音檔
       if (item.wordAudio && item.wordAudio !== "null") {
         playSingle(item.wordAudio, `📢 語詞：${item.word}`);
         audioPlayer.onended = () => {
-          // 語詞結束，判斷是否播放例句
           if (item.exampleAudio && item.exampleAudio !== "null") {
             setTimeout(() => {
               if (isAutoPlaying) {
                 playSingle(item.exampleAudio, `📖 例句：${item.word}`);
-                audioPlayer.onended = () => playNextInPlaylist(); // 例句播完，找下一張
+                audioPlayer.onended = () => playNextInPlaylist();
               }
             }, 800);
           } else {
-            playNextInPlaylist(); // 無例句，直接找下一張
+            playNextInPlaylist();
           }
         };
       } else if (item.exampleAudio && item.exampleAudio !== "null") {
-        // 無語詞僅有例句
         playSingle(item.exampleAudio, `📖 例句：${item.word}`);
         audioPlayer.onended = () => playNextInPlaylist();
       }
@@ -240,9 +273,7 @@
       const start = (currentPage - 1) * itemsPerPage;
       playlist = filteredData.slice(start, start + itemsPerPage)
                  .filter(item => (item.wordAudio && item.wordAudio !== "null") || (item.exampleAudio && item.exampleAudio !== "null"));
-      
       if (playlist.length === 0) return alert("本頁無音檔");
-      
       stopSequence();
       isAutoPlaying = true;
       playlistIdx = 0;
@@ -251,12 +282,11 @@
 
     function playNextInPlaylist() {
       if (!isAutoPlaying) return;
-      
       playlistIdx++;
       if (playlistIdx < playlist.length) {
         setTimeout(() => {
           if(isAutoPlaying) startWordSequence(playlist[playlistIdx]);
-        }, 1500); // 卡片與卡片間隔 1.5 秒
+        }, 1500);
       } else {
         document.getElementById('current-word').innerText = "✅ 全頁播放完畢";
         finishSequence();
@@ -277,9 +307,6 @@
       document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now'));
     }
 
-    /**
-     * 單獨播放例句：此動作會中斷所有自動連播模式，僅播放單一例句
-     */
     function playOnlyExample(url, name, id) {
       stopSequence(); 
       document.getElementById('player-container').style.display = 'block';
@@ -294,7 +321,7 @@
       if (!filteredData || filteredData.length === 0) { app.innerHTML = "目前沒有資料。"; return; }
       const start = (currentPage - 1) * itemsPerPage;
       const pagedData = filteredData.slice(start, start + itemsPerPage);
-      const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+      const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
       const starredList = getStarredList();
       let html = '';
       pagedData.forEach((item) => {
@@ -338,6 +365,7 @@
     }
 
     function switchSheet(name) {
+      if (currentSheet === name) return;
       currentSheet = name;
       document.querySelectorAll('#sheet-buttons button').forEach(btn => {
         btn.className = (btn.innerText === name) ? "btn btn-primary" : "btn btn-outline-primary";
@@ -361,7 +389,7 @@
       else { filteredData = allData.filter(item => item.cat === cat); }
       currentPage = 1; render();
     }
-    function jumpToPage(v) { const p = parseInt(v); const total = Math.ceil(filteredData.length / itemsPerPage); if (p >= 1 && p <= total) { currentPage = p; render(); window.scrollTo(0,0); } }
+    function jumpToPage(v) { const p = parseInt(v); const total = Math.ceil(filteredData.length / itemsPerPage) || 1; if (p >= 1 && p <= total) { currentPage = p; render(); window.scrollTo(0,0); } }
     function changePage(s) { currentPage += s; render(); window.scrollTo(0,0); }
     function flipCard(e) { e.classList.toggle('is-flipped'); }
     window.onload = init;
