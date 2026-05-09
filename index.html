@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>語詞例句學習卡 - 靠左對齊版</title>
+  <title>語詞例句學習卡 - 智能序列版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
@@ -34,7 +34,8 @@
     .word-card.starred-border { background-color: #fffdf0 !important; }
     .word-card.starred-border .card-front { border-left: 5px solid #f1c40f; }
 
-    .playing-now { box-shadow: 0 0 15px #007bff !important; border: 2px solid #007bff !important; }
+    /* 播放中高亮 */
+    .playing-now { box-shadow: 0 0 20px #007bff !important; border: 2px solid #007bff !important; }
 
     .word-header { display: flex; align-items: center; justify-content: flex-start; margin-bottom: 8px; }
     .word-title { font-size: 1.4rem; color: #2c3e50; font-weight: bold; }
@@ -45,12 +46,10 @@
     .badge { padding: 3px 8px; border-radius: 20px; font-size: 0.75rem; color: white; }
     .bg-cat { background-color: #2ecc71; }
 
-    /* 例句方塊：靠左對齊並填滿寬度 */
     .example-box {
       background: #f1f3f5; padding: 10px; border-left: 4px solid #3498db;
       font-size: 0.95rem; color: #34495e; border-radius: 0 4px 4px 0;
-      flex-grow: 1; overflow-y: auto; line-height: 1.6;
-      text-align: left; /* 確保內容靠左 */
+      flex-grow: 1; overflow-y: auto; line-height: 1.6; text-align: left;
     }
     
     .example-label { 
@@ -89,7 +88,7 @@
   
   <div class="d-grid gap-2 mb-3">
     <button id="playAllBtn" class="btn btn-success fw-bold" onclick="playAllOnPage()">
-      🎧 播放本頁 (語詞 + 例句)
+      🎧 播放本頁全部 (語詞 + 例句)
     </button>
   </div>
 
@@ -120,7 +119,7 @@
     <div class="player-flex">
       <div id="current-word">尚未播放</div>
       <audio id="global-audio" controls></audio>
-      <button class="btn btn-sm btn-outline-secondary" onclick="stopSequence()">停止</button>
+      <button class="btn btn-sm btn-outline-danger" onclick="stopSequence()">停止</button>
     </div>
   </div>
 
@@ -134,7 +133,7 @@
     let currentSheet = "";
     let playlist = [];
     let playlistIdx = 0;
-    let isAutoNextWord = false;
+    let isAutoPlaying = false; 
 
     async function init() {
       try {
@@ -185,35 +184,55 @@
       }
     }
 
-    function startWordSequence(item, autoNext = false) {
-      stopSequence();
-      isAutoNextWord = autoNext;
+    /**
+     * 點擊卡片語詞鈕觸發：
+     * 如果正在自動播放，則將進度跳轉到這一組並繼續往後播。
+     * 如果沒在自動播放，則啟動從這一組開始往後的自動播放。
+     */
+    function jumpToAndPlay(targetId) {
+      // 獲取目前頁面上的所有可播放項
+      const start = (currentPage - 1) * itemsPerPage;
+      playlist = filteredData.slice(start, start + itemsPerPage)
+                 .filter(item => (item.wordAudio && item.wordAudio !== "null") || (item.exampleAudio && item.exampleAudio !== "null"));
+      
+      // 尋找目標卡片在清單中的索引
+      const idx = playlist.findIndex(item => String(item.id) === String(targetId));
+      
+      if (idx !== -1) {
+        stopSequence();
+        isAutoPlaying = true; // 開啟自動連播模式
+        playlistIdx = idx;
+        startWordSequence(playlist[playlistIdx]);
+      }
+    }
+
+    function startWordSequence(item) {
       const audioPlayer = document.getElementById('global-audio');
       document.getElementById('player-container').style.display = 'block';
       
+      // 高亮當前卡片
       document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now'));
       const card = document.querySelector(`[data-id="${item.id}"]`);
       if (card) card.classList.add('playing-now');
 
+      // 1. 播放語詞
       if (item.wordAudio && item.wordAudio !== "null") {
         playSingle(item.wordAudio, `📢 語詞：${item.word}`);
         audioPlayer.onended = () => {
+          // 語詞完畢，準備播例句
           if (item.exampleAudio && item.exampleAudio !== "null") {
             setTimeout(() => {
               playSingle(item.exampleAudio, `📖 例句：${item.word}`);
-              audioPlayer.onended = () => {
-                if (isAutoNextWord) playNextInPlaylist(); else finishSequence();
-              };
+              audioPlayer.onended = () => playNextInPlaylist();
             }, 800);
           } else {
-            if (isAutoNextWord) playNextInPlaylist(); else finishSequence();
+            playNextInPlaylist();
           }
         };
       } else if (item.exampleAudio && item.exampleAudio !== "null") {
+        // 沒有語詞音檔，直接播例句
         playSingle(item.exampleAudio, `📖 例句：${item.word}`);
-        audioPlayer.onended = () => {
-          if (isAutoNextWord) playNextInPlaylist(); else finishSequence();
-        };
+        audioPlayer.onended = () => playNextInPlaylist();
       }
     }
 
@@ -229,17 +248,25 @@
       const start = (currentPage - 1) * itemsPerPage;
       playlist = filteredData.slice(start, start + itemsPerPage)
                  .filter(item => (item.wordAudio && item.wordAudio !== "null") || (item.exampleAudio && item.exampleAudio !== "null"));
+      
       if (playlist.length === 0) return alert("本頁無音檔");
+      
+      stopSequence();
+      isAutoPlaying = true;
       playlistIdx = 0;
-      startWordSequence(playlist[playlistIdx], true);
+      startWordSequence(playlist[playlistIdx]);
     }
 
     function playNextInPlaylist() {
+      if (!isAutoPlaying) return;
+      
       playlistIdx++;
       if (playlistIdx < playlist.length) {
-        setTimeout(() => startWordSequence(playlist[playlistIdx], true), 1500);
+        setTimeout(() => {
+          if(isAutoPlaying) startWordSequence(playlist[playlistIdx]);
+        }, 1500); 
       } else {
-        document.getElementById('current-word').innerText = "✅ 全頁播放完畢";
+        document.getElementById('current-word').innerText = "✅ 播放完畢";
         finishSequence();
       }
     }
@@ -248,16 +275,20 @@
       const audioPlayer = document.getElementById('global-audio');
       audioPlayer.pause();
       audioPlayer.onended = null;
-      isAutoNextWord = false;
+      isAutoPlaying = false;
       document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now'));
     }
 
     function finishSequence() {
+      isAutoPlaying = false;
       document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now'));
     }
 
+    /**
+     * 單獨播放例句 (不啟動或中斷連播模式)
+     */
     function playOnlyExample(url, name, id) {
-      stopSequence();
+      stopSequence(); // 點擊單獨播放會停止自動連播
       document.getElementById('player-container').style.display = 'block';
       const card = document.querySelector(`[data-id="${id}"]`);
       if (card) card.classList.add('playing-now');
@@ -283,7 +314,7 @@
             <div class="word-card ${isStarred ? 'starred-border' : ''}" data-id="${item.id}" onclick="flipCard(this)">
               <div class="card-front">
                 <div class="word-header">
-                  <button class="play-icon-btn" onclick="event.stopPropagation(); startWordSequence(${JSON.stringify(item).replace(/"/g, '&quot;')})">▶</button>
+                  <button class="play-icon-btn" onclick="event.stopPropagation(); jumpToAndPlay('${item.id}')">▶</button>
                   <span class="word-title">${item.word}</span>
                   <button class="star-btn ${isStarred ? 'active' : ''}" onclick="toggleStar('${item.id}', event)">★</button>
                   <span class="word-no">#${item.id}</span>
