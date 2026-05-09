@@ -184,6 +184,11 @@
       let html = '';
       pagedData.forEach((item) => {
         const isStarred = starredList.includes(String(item.id));
+        
+        // --- 【新增】判斷例句是否存在的邏輯 ---
+        const hasExample = item.example && item.example !== "null" && item.example.trim() !== "";
+        const exampleDisplay = hasExample ? 'display: block;' : 'display: none;';
+        
         html += `
           <div class="card-container">
             <div class="word-card ${isStarred ? 'starred-border' : ''}" data-id="${item.id}" onclick="flipCard(this)">
@@ -198,9 +203,10 @@
                 <div class="badge-group" style="margin-left: 47px;">
                   <span class="badge bg-cat">${item.cat || '未分類'}</span>
                 </div>
-                <div class="example-box">
+                
+                <div class="example-box" style="${exampleDisplay}">
                   <span class="example-label">例句<button class="play-btn-sm" onclick="event.stopPropagation(); playOnlyExample('${item.exampleAudio}', '${item.word}', '${item.id}')">🔊</button>:</span>
-                  ${item.example || '（暫無例句）'}
+                  ${item.example || ''}
                 </div>
               </div>
               <div class="card-back">
