@@ -287,13 +287,24 @@
       const audioPlayer = document.getElementById('global-audio');
       document.getElementById('player-container').style.display = 'block';
       document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now'));
+      
       const card = document.querySelector(`[data-id="${item.id}"]`);
-      if (card) card.classList.add('playing-now');
+      if (card) {
+        card.classList.add('playing-now');
+        // 自動捲動到畫面中央
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
       if (item.wordAudio && item.wordAudio !== "null") {
         playSingle(item.wordAudio, `📢 語詞：${item.word}`);
         audioPlayer.onended = () => {
           if (item.exampleAudio && item.exampleAudio !== "null") {
-            setTimeout(() => { if (isAutoPlaying) { playSingle(item.exampleAudio, `📖 例句：${item.word}`); audioPlayer.onended = () => playNextInPlaylist(); } }, 800);
+            setTimeout(() => { 
+              if (isAutoPlaying) { 
+                playSingle(item.exampleAudio, `📖 例句：${item.word}`); 
+                audioPlayer.onended = () => playNextInPlaylist(); 
+              } 
+            }, 800);
           } else { playNextInPlaylist(); }
         };
       } else if (item.exampleAudio) {
