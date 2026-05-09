@@ -126,24 +126,90 @@
     let playlistIdx = 0;
     let isAutoPlaying = false; 
 
-    async function init() {
-      // 嘗試從快取讀取頁籤列表，提升啟動速度
-      const cachedSheets = localStorage.getItem('cache_sheet_names');
-      if (cachedSheets) {
-        setupSheetButtons(JSON.parse(cachedSheets));
-      }
+    // --- 修改後的關鍵函式 ---
 
-      try {
-        const response = await fetch(`${API_URL}?action=getSheets`);
-        const names = await response.json();
-        if (names && names.length > 0) {
-          localStorage.setItem('cache_sheet_names', JSON.stringify(names));
-          setupSheetButtons(names);
-        }
-      } catch (err) {
-        if (!cachedSheets) document.getElementById('app').innerHTML = "連線失敗。";
-      }
+  async function init() {
+    // 1. 嘗試讀取快取的頁籤列表
+    const cachedSheets = localStorage.getItem('cache_sheet_names');
+    if (cachedSheets) {
+      setupSheetButtons(JSON.parse(cachedSheets));
     }
+  
+    try {
+      const response = await fetch(`${API_URL}?action=getSheets`);
+      const names = await response.json();
+      if (names && names.length > 0) {
+        localStorage.setItem('cache_sheet_names', JSON.stringify(names));
+        setupSheetButtons(names);
+      }
+    } catch (err) {
+      if (!cachedSheets) document.getElementById('app').innerHTML = "連線失敗。";
+    }
+  }
+  
+  function setupSheetButtons(names) {
+    const btnContainer = document.getElementById('sheet-buttons');
+    
+    // 【新增】讀取上次進度：最後所在的頁籤
+    const lastSheet = localStorage.getItem('last_progress_sheet');
+    if (lastSheet && names.includes(lastSheet)) {
+      currentSheet = lastSheet;
+    } else {
+      currentSheet = names[0];
+    }
+  
+    // 【新增】讀取上次進度：最後所在的頁碼
+    const lastPage = localStorage.getItem(`last_page_${currentSheet}`);
+    currentPage = lastPage ? parseInt(lastPage) : 1;
+  
+    btnContainer.innerHTML = '';
+    names.forEach((name) => {
+      const btn = document.createElement('button');
+      btn.innerText = name;
+      btn.className = (name === currentSheet) ? "btn btn-primary" : "btn btn-outline-primary";
+      btn.onclick = () => switchSheet(name);
+      btnContainer.appendChild(btn);
+    });
+  
+    loadData();
+  }
+  
+  function switchSheet(name) {
+    if (currentSheet === name) return;
+    currentSheet = name;
+    
+    // 【新增】儲存目前頁籤進度
+    localStorage.setItem('last_progress_sheet', name);
+    
+    // 【新增】切換分頁時，嘗試回復該分頁上次的頁碼，若無則從第一頁開始
+    const lastPage = localStorage.getItem(`last_page_${currentSheet}`);
+    currentPage = lastPage ? parseInt(lastPage) : 1;
+  
+    document.querySelectorAll('#sheet-buttons button').forEach(btn => {
+      btn.className = (btn.innerText === name) ? "btn btn-primary" : "btn btn-outline-primary";
+    });
+    loadData();
+  }
+  
+  function changePage(s) { 
+    currentPage += s; 
+    // 【新增】儲存目前頁碼進度
+    localStorage.setItem(`last_page_${currentSheet}`, currentPage);
+    render(); 
+    window.scrollTo(0,0); 
+  }
+  
+  function jumpToPage(v) { 
+    const p = parseInt(v); 
+    const total = Math.ceil(filteredData.length / itemsPerPage) || 1; 
+    if (p >= 1 && p <= total) { 
+      currentPage = p; 
+      // 【新增】儲存目前頁碼進度
+      localStorage.setItem(`last_page_${currentSheet}`, currentPage);
+      render(); 
+      window.scrollTo(0,0); 
+    } 
+  }
 
     function setupSheetButtons(names) {
       const btnContainer = document.getElementById('sheet-buttons');
