@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證系統 - 完美置中版</title>
+  <title>台語認證系統 - 完整功能版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
@@ -15,28 +15,16 @@
     .compact-panel { background: white; padding: 10px 15px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
     .panel-item { flex: 1; min-width: 120px; }
     
-    /* 投影片模式遮罩 - 修正置中邏輯 */
+    /* 投影片模式遮罩 */
     #slideshow-overlay { 
       position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
       background: rgba(0, 0, 0, 0.96); z-index: 3000; display: none; 
       align-items: center; justify-content: center; backdrop-filter: blur(15px); 
       cursor: pointer; overflow: hidden;
     }
-    
-    /* 卡片容器 - 確保內部絕對居中 */
-    #slide-content { 
-      width: 100%; height: 100%; 
-      display: flex; align-items: center; justify-content: center; 
-      cursor: default; padding: 20px;
-    }
-    
-    /* 投影片模式下的卡片外層 - 修正歪掉的問題 */
-    .overlay-card-wrapper {
-      width: 90%; max-width: 800px;
-      display: flex; justify-content: center; align-items: center;
-    }
+    #slide-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: default; padding: 20px; }
+    .overlay-card-wrapper { width: 90%; max-width: 800px; display: flex; justify-content: center; align-items: center; }
 
-    /* 導覽按鈕 - 使用絕對定位，不佔空間 */
     .close-overlay-btn { 
       position: absolute; top: 20px; right: 20px; 
       background: rgba(255,255,255,0.1); color: white; border: none; 
@@ -44,12 +32,7 @@
       z-index: 3500; transition: 0.3s; display: flex; align-items: center; justify-content: center;
     }
     .close-overlay-btn:hover { background: rgba(255,0,0,0.6); transform: rotate(90deg); }
-    
-    .nav-btn-overlay { 
-      position: absolute; top: 50%; transform: translateY(-50%); 
-      background: none; color: white; border: none; font-size: 5rem; 
-      opacity: 0.2; transition: 0.3s; z-index: 3400; padding: 20px;
-    }
+    .nav-btn-overlay { position: absolute; top: 50%; transform: translateY(-50%); background: none; color: white; border: none; font-size: 5rem; opacity: 0.2; transition: 0.3s; z-index: 3400; padding: 20px; }
     .nav-btn-overlay:hover { opacity: 1; transform: translateY(-50%) scale(1.1); }
 
     /* 卡片基礎樣式 */
@@ -58,9 +41,7 @@
     .word-card.is-flipped { transform: rotateY(180deg); }
     .playing-height { min-height: 420px !important; }
     
-    /* 投影片模式下的卡片放大 */
     #slideshow-overlay .word-card { height: 65vh; min-height: 500px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-
     .card-front, .card-back { position: absolute; top: 0; left: 0; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; padding: 30px; display: flex; flex-direction: column; overflow: hidden; }
     .card-front { border-left: 12px solid #007bff; }
     .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 12px solid #28a745; overflow-y: auto; }
@@ -85,10 +66,8 @@
 
   <div id="slideshow-overlay" onclick="closeOnOverlay(event)">
     <button class="close-overlay-btn" onclick="stopSequence()"><i class="bi bi-x-lg"></i></button>
-    
     <button class="nav-btn-overlay" style="left: 20px;" onclick="event.stopPropagation(); manualPrev()"><i class="bi bi-chevron-left"></i></button>
-    <div id="slide-content" onclick="event.stopPropagation()">
-        </div>
+    <div id="slide-content" onclick="event.stopPropagation()"></div>
     <button class="nav-btn-overlay" style="right: 20px;" onclick="event.stopPropagation(); manualNext()"><i class="bi bi-chevron-right"></i></button>
   </div>
 
@@ -135,9 +114,13 @@
     async function init() {
       const response = await fetch(`${API_URL}?action=getSheets`);
       const names = await response.json();
+      
+      // 回復進度：上次的工作表
       currentSheet = localStorage.getItem('last_sheet') || names[0];
       document.getElementById('sheetSelect').innerHTML = names.map(n => `<option value="${n}" ${n===currentSheet?'selected':''}>📚 ${n}</option>`).join('');
+      
       await loadData();
+      
       const audio = document.getElementById('global-audio');
       audio.onplay = () => updatePlayPauseUI(true);
       audio.onpause = () => updatePlayPauseUI(false);
@@ -162,11 +145,21 @@
         fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`).catch(() => null)
       ]);
       allData = await dataRes.json();
+      
       if(catRes) {
         const cats = await catRes.json();
         document.getElementById('categorySelect').innerHTML = '<option value="all">📂 全部類別</option><option value="my_stars">⭐ 我的收藏</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
       }
-      applyFilter(localStorage.getItem(`last_cat_${currentSheet}`) || "all");
+      
+      // 回復進度：上次的類別
+      const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
+      applyFilter(savedCat);
+      
+      // 回復進度：上次的分頁
+      const savedPage = parseInt(localStorage.getItem(`last_page_${currentSheet}`)) || 1;
+      const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
+      currentPage = Math.min(savedPage, totalPages);
+      
       updatePageJumpSelect();
       render();
     }
@@ -176,10 +169,10 @@
       if (cat === "my_stars") filteredData = allData.filter(item => starredList.includes(String(item.id)));
       else if (cat !== "all") filteredData = allData.filter(item => item.cat === cat);
       else filteredData = allData;
+      localStorage.setItem(`last_cat_${currentSheet}`, cat);
     }
 
     function handleCategoryChange(val) {
-      localStorage.setItem(`last_cat_${currentSheet}`, val);
       applyFilter(val);
       currentPage = 1;
       updatePageJumpSelect();
@@ -191,15 +184,15 @@
       const start = (currentPage - 1) * itemsPerPage;
       app.innerHTML = filteredData.slice(start, start + itemsPerPage).map(item => createCardHTML(item, false)).join('');
       if (window.CNS11643) setTimeout(() => CNS11643.fixed(), 150);
+      
+      // 記錄分頁進度
       localStorage.setItem(`last_page_${currentSheet}`, currentPage);
     }
 
-    // 優化：傳入 isOverlay 參數來決定是否包含 Bootstrap 的 .col
     function createCardHTML(item, isOverlay = false) {
       const isStarred = starredList.includes(String(item.id));
       const hasExample = item.example && item.example !== "null" && item.example !== "";
       const hasDict = item.dictUrl && item.dictUrl !== "null" && item.dictUrl !== "";
-      
       const cardInner = `
           <div class="word-card" onclick="handleCardClick(event, this)">
             <div class="card-top-controls">
@@ -208,7 +201,7 @@
             </div>
             <div class="card-front">
               <div class="d-flex align-items-center mb-1">
-                <button class="btn btn-primary rounded-circle me-4" style="width:50px; height:50px;" onclick="event.stopPropagation(); startPlayback('${item.id}', 'single')">
+                <button class="btn btn-primary rounded-circle me-4" style="width:50px; height:50px;" onclick="event.stopPropagation(); startPlayback('${item.id}', 'from_card')">
                    <i class="bi bi-play-fill fs-4"></i>
                 </button>
                 <div class="word-title">${item.word}${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" style="font-size:1.5rem; opacity:0.5; color:#0d6efd;" onclick="event.stopPropagation();"><i class="bi bi-link-45deg"></i></a>` : ''}</div>
@@ -218,8 +211,6 @@
             </div>
             <div class="card-back"><div class="p-3"><h4 class="text-success border-bottom pb-2">【解釋】</h4><p style="font-size: 1.6rem;">${item.meaning || '尚未提供'}</p></div></div>
           </div>`;
-
-      // 如果是在投影片模式，外層不加 .col
       return isOverlay ? `<div class="overlay-card-wrapper" id="card-pos-${item.id}">${cardInner}</div>` : `<div class="col" id="card-pos-${item.id}">${cardInner}</div>`;
     }
 
@@ -228,22 +219,20 @@
       el.classList.toggle('is-flipped');
     }
 
-    function handleExampleToggle(e, el) {
-      e.stopPropagation();
-      el.classList.toggle('example-expanded');
-    }
+    function handleExampleToggle(e, el) { e.stopPropagation(); el.classList.toggle('example-expanded'); }
 
     function setModeAndPlay(mode) {
       currentMode = mode;
       const firstIdOnPage = filteredData[(currentPage - 1) * itemsPerPage].id;
-      startPlayback(firstIdOnPage, mode);
+      startPlayback(firstIdOnPage, 'from_button');
     }
 
-    function startPlayback(id, mode) { 
-      if (!isPlaying && mode === 'single') { playOnlyOne(id); return; }
+    function startPlayback(id, trigger) { 
+      if (trigger === 'from_card' && !isPlaying) {
+        playOnlyOne(id);
+        return;
+      }
       isPlaying = true; 
-      if (mode !== 'single') currentMode = mode;
-
       const uiMode = document.getElementById('playModeSelect').value;
       if (uiMode === 'slideshow') document.getElementById('slideshow-overlay').style.display = 'flex'; 
       document.getElementById('player-container').style.display = 'block'; 
@@ -266,33 +255,6 @@
       };
     }
 
-    function jumpToPage(val, autoScroll = true) {
-      currentPage = parseInt(val);
-      if (document.getElementById('pageJumpSelect')) document.getElementById('pageJumpSelect').value = currentPage; 
-      render();
-      if (autoScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function updatePageJumpSelect() {
-      const total = Math.ceil(filteredData.length / itemsPerPage) || 1;
-      let options = "";
-      for(let i=1; i<=total; i++) options += `<option value="${i}" ${i===currentPage?'selected':''}>第 ${i} 頁</option>`;
-      document.getElementById('pageJumpSelect').innerHTML = options;
-    }
-
-    function toggleStar(id, el) {
-      id = String(id);
-      if (starredList.includes(id)) { starredList = starredList.filter(i => i !== id); el.classList.replace('bi-star-fill', 'bi-star'); }
-      else { starredList.push(id); el.classList.replace('bi-star', 'bi-star-fill'); }
-      localStorage.setItem('starred_words', JSON.stringify(starredList));
-    }
-
-    function changePage(s) {
-      const total = Math.ceil(filteredData.length / itemsPerPage);
-      const nextPage = currentPage + s;
-      if (nextPage >= 1 && nextPage <= total) jumpToPage(nextPage);
-    }
-
     function showSlide() { 
       if (!isPlaying || playlistIdx === -1) return; 
       const item = filteredData[playlistIdx]; 
@@ -300,7 +262,6 @@
       syncPageByTrack();
       
       if (uiMode === 'slideshow') {
-        // 使用修正後的 wrapper 插入，確保真正置中
         document.getElementById('slide-content').innerHTML = createCardHTML(item, true); 
       } else {
         document.querySelectorAll('.word-card').forEach(c => c.classList.remove('now-playing-border', 'playing-height'));
@@ -334,9 +295,24 @@
 
     function manualNext() { if (playlistIdx < filteredData.length - 1) { playlistIdx++; showSlide(); } else stopSequence(); }
     function manualPrev() { if (playlistIdx > 0) { playlistIdx--; showSlide(); } }
+    
     function syncPageByTrack() { 
       const targetPage = Math.floor(playlistIdx / itemsPerPage) + 1; 
       if (targetPage !== currentPage) jumpToPage(targetPage, false); 
+    }
+
+    function jumpToPage(val, autoScroll = true) {
+      currentPage = parseInt(val);
+      if (document.getElementById('pageJumpSelect')) document.getElementById('pageJumpSelect').value = currentPage; 
+      render();
+      if (autoScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updatePageJumpSelect() {
+      const total = Math.ceil(filteredData.length / itemsPerPage) || 1;
+      let options = "";
+      for(let i=1; i<=total; i++) options += `<option value="${i}" ${i===currentPage?'selected':''}>第 ${i} 頁</option>`;
+      document.getElementById('pageJumpSelect').innerHTML = options;
     }
 
     function stopSequence() { 
@@ -358,7 +334,26 @@
         }, 100); 
       }
     }
-    function switchSheet(val) { currentSheet = val; localStorage.setItem('last_sheet', val); loadData(); }
+
+    function toggleStar(id, el) {
+      id = String(id);
+      if (starredList.includes(id)) { starredList = starredList.filter(i => i !== id); el.classList.replace('bi-star-fill', 'bi-star'); }
+      else { starredList.push(id); el.classList.replace('bi-star', 'bi-star-fill'); }
+      localStorage.setItem('starred_words', JSON.stringify(starredList));
+    }
+
+    function changePage(s) {
+      const total = Math.ceil(filteredData.length / itemsPerPage);
+      const nextPage = currentPage + s;
+      if (nextPage >= 1 && nextPage <= total) jumpToPage(nextPage);
+    }
+
+    function switchSheet(val) { 
+      currentSheet = val; 
+      localStorage.setItem('last_sheet', val); 
+      loadData(); 
+    }
+    
     function closeOnOverlay(e) { if (e.target.id === 'slideshow-overlay') stopSequence(); }
     window.onload = init;
   </script>
