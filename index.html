@@ -187,12 +187,30 @@
     function fixRareChars(text) {
       if (!text) return "";
       
-      // 手機版最穩定的做法：將編碼轉回成「真正的字元」
-      // 讓 Noto Sans TC 等字型去處理渲染，而不是靠圖片
-      return text.replace(/&#[xX]([0-9A-Fa-f]+);/g, (match, hex) => {
-        return String.fromCodePoint(parseInt(hex, 16));
-      }).replace(/&#(\d+);/g, (match, dec) => {
-        return String.fromCodePoint(parseInt(dec, 10));
+      // 同時處理十六進位 (&#x...) 與 十進位 (&#...)
+      return text.replace(/&#([xX][0-9A-Fa-f]+|\d+);/g, (match, code) => {
+        let hex;
+        if (code.toLowerCase().startsWith('x')) {
+          hex = code.substring(1).toLowerCase();
+        } else {
+          hex = parseInt(code, 10).toString(16).toLowerCase();
+        }
+    
+        // 建立一個純文字字元 (供電腦版使用)
+        const char = String.fromCodePoint(parseInt(hex, 16));
+        
+        // 建立一個穩定來源的圖片 (供手機版保險使用)
+        // 改用全字庫的標準 WZ PNG 輸出介面
+        const imgUrl = `https://www.cns11643.gov.tw/AIDB/png.do?components=1&font=0&code=${hex}`;
+    
+        // 使用一個容器，讓文字跟圖片擇一顯示最正確的
+        return `<span class="rare-char-wrap" style="display:inline-flex; align-items:center;">
+                  <span class="char-text" style="font-family: 'Noto Sans TC', sans-serif;">${char}</span>
+                  <img src="${imgUrl}" 
+                       style="height:1.1em; width:auto; vertical-align:middle; display:none;" 
+                       onload="this.style.display='inline-block'; this.previousElementSibling.style.display='none';"
+                       onerror="this.style.display='none'; this.previousElementSibling.style.display='inline-block';">
+                </span>`;
       });
     }
 
