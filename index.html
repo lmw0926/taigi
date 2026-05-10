@@ -198,9 +198,13 @@
           <div class="card-container">
             <div class="word-card ${isStarred ? 'starred-border' : ''}" data-id="${item.id}" onclick="flipCard(this)">
               <div class="card-front">
+                // 在 render 函式的 pagedData.forEach 內找到這一段並替換
                 <div class="word-header">
                   <button class="play-icon-btn" onclick="event.stopPropagation(); jumpToAndPlay('${item.id}')">▶</button>
                   <span class="word-title">${item.word}</span>
+                  
+                  ${hasDict ? `<a href="${item.dictUrl}" target="_blank" onclick="event.stopPropagation()" style="text-decoration:none; margin-left:8px;">🔗</a>` : ''}
+                  
                   <button class="star-btn ${isStarred ? 'active' : ''}" onclick="toggleStar('${item.id}', event)">★</button>
                   <span class="word-no">#${item.id}</span>
                 </div>
