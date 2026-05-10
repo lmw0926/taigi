@@ -246,13 +246,13 @@
                   <button class="star-btn ${isStarred ? 'active' : ''}" onclick="toggleStar('${item.id}', event)">★</button>
                   <span class="word-no">#${item.id}</span>
                 </div>
-                <div class="ipa-text">[ ${item.ipa || ''} ]</div>
+                <div class="ipa-text"> ${item.ipa || ''} </div>
                 <div class="badge-group">
                   <span class="badge bg-cat">${item.cat || '未分類'}</span>
                 </div>
                 ${hasExample ? `
                 <div class="example-box">
-                  <span class="example-label">例句 <button class="play-btn-sm" onclick="event.stopPropagation(); playOnlyExample('${item.exampleAudio}', '${item.word}', '${item.id}')">🔊</button></span>
+                  <span class="example-label"><button class="play-btn-sm" onclick="event.stopPropagation(); playOnlyExample('${item.exampleAudio}', '${item.word}', '${item.id}')">🔊</button></span>
                   ${item.example}
                 </div>` : ''}
               </div>
