@@ -7,244 +7,96 @@
   <title>台語認證練習系統</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    /* CSS 維持不變 */
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
-    body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8f9fa; padding: 15px; padding-bottom: 120px !important; }
-    .card-container { perspective: 1000px; margin-bottom: 20px; }
-    .word-card { width: 100%; min-height: 280px; transition: transform 0.6s; transform-style: preserve-3d; position: relative; cursor: pointer; }
-    .word-card.is-flipped { transform: rotateY(180deg); }
-    .card-front, .card-back { position: absolute; top: 0; left: 0; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 12px; padding: 20px; border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.08); display: flex; flex-direction: column; background: white; }
-    .card-front { border-left: 6px solid #007bff; z-index: 2; }
-    .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 6px solid #28a745; }
-    .word-card.starred-border .card-front { border-left-color: #f1c40f; background-color: #fffdf0; }
-    .playing-now { box-shadow: 0 0 20px #007bff !important; border: 2px solid #007bff !important; }
-    .word-header { display: flex; align-items: center; margin-bottom: 10px; width: 100%; }
-    .word-title { font-size: 2rem; color: #2c3e50; font-weight: bold; }
-    .word-no { font-size: 0.85rem; color: #95a5a6; margin-left: auto; }
-    .dict-link { text-decoration: none; font-size: 1.1rem; margin-left: 10px; color: #198754; }
-    .ipa-text { color: #e67e22; font-family: 'Segoe UI', Arial, sans-serif; font-size: 1.5rem; margin-bottom: 8px; margin-left: 47px; }
-    .badge-group { margin-bottom: 12px; margin-left: 47px; display: flex; gap: 5px; }
-    .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; }
-    .bg-cat { background-color: #2ecc71; color: white; }
-    .example-box { background: #f1f3f5; padding: 12px; border-left: 4px solid #3498db; font-size: 1.5rem; color: #34495e; border-radius: 0 4px 4px 0; flex-grow: 1; overflow-y: auto; line-height: 1.6; text-align: left; }
-    .example-label { font-size: 0.85rem; color: #7f8c8d; font-weight: bold; margin-bottom: 4px; display: block; }
-    .play-icon-btn { background: #007bff; color: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: none; margin-right: 12px; flex-shrink: 0; }
-    .play-btn-sm { background: #3498db; color: white; border: none; border-radius: 4px; font-size: 0.7rem; padding: 2px 6px; margin-left: 8px; }
-    .star-btn { background: none; border: none; font-size: 1.6rem; color: #ccc; cursor: pointer; padding: 0 5px; }
-    .star-btn.active { color: #f1c40f; }
-    #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; box-shadow: 0 -2px 15px rgba(0,0,0,0.1); padding: 15px; display: none; z-index: 1000; }
-    .player-flex { display: flex; align-items: center; gap: 15px; max-width: 800px; margin: 0 auto; }
-    #current-word { font-weight: bold; font-size: 1rem; color: #007bff; min-width: 100px; }
-    audio { flex-grow: 1; height: 40px; }
-  </style>
-</head>
-<body>
+  /* 1. 強制引入包含擴展區的雲端字型 */
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
 
-  <div id="sheet-buttons" class="d-flex justify-content-center flex-wrap gap-2 mb-3"></div>
+  body { 
+    /* 優先順序：Google雲端字型 > 蘋果系統字型 > 微軟正黑體 */
+    font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Microsoft JhengHei"; 
+    background-color: #f8f9fa; 
+    padding: 15px; 
+    padding-bottom: 120px !important; 
+  }
+
+  /* 2. 針對罕見字的 CSS 渲染優化 */
+  .word-title, .example-box {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    font-variant-ligatures: none;
+  }
   
-  <div class="d-grid gap-2 mb-3">
-    <button id="playAllBtn" class="btn btn-success fw-bold" onclick="playAllOnPage()">🎧 順序播放本頁全部 (語詞 + 例句)</button>
-  </div>
+  /* 其他原有的 CSS 請保留... */
+</style>
 
-  <div class="row mb-3">
-    <div class="col-12">
-      <div class="input-group">
-        <label class="input-group-text" for="categorySelect">篩選分類</label>
-        <select class="form-select" id="categorySelect" onchange="filterByCategory(this.value)">
-          <option value="all">全部類別</option>
-          <option value="my_stars">⭐ 我的收藏</option>
-        </select>
-      </div>
-    </div>
-  </div>
+<script>
+  // ... 前面的變數定義與 init 維持不變 ...
 
-  <div id="app" class="row row-cols-1 row-cols-md-2 g-3">
-    <div class="col-12 text-center">初始化中...</div>
-  </div>
-
-  <div id="pagination" class="d-flex justify-content-between align-items-center mt-4 mb-5">
-    <button id="prevBtn" class="btn btn-outline-primary" onclick="changePage(-1)">上一頁</button>
-    <div class="d-flex align-items-center gap-2">
-      <input type="number" id="pageInput" class="form-control text-center" style="width: 70px;" onchange="jumpToPage(this.value)" min="1">
-      <span id="totalPages">/ 頁</span>
-    </div>
-    <button id="nextBtn" class="btn btn-outline-primary" onclick="changePage(1)">下一頁</button>
-  </div>
-
-  <div id="player-container">
-    <div class="player-flex">
-      <div id="current-word">尚未播放</div>
-      <audio id="global-audio" controls></audio>
-      <button class="btn btn-sm btn-outline-danger" onclick="stopSequence()">停止</button>
-    </div>
-  </div>
-
-  <script>
-    // 核心變數
-    let allData = [];
-    let filteredData = [];
-    let currentPage = 1;
-    const itemsPerPage = 10;
-    const API_URL = "https://script.google.com/a/macros/guo.kh.edu.tw/s/AKfycbw_OHgjTJqP6OvnIYZl2L9XkkH_DacnLfcQHipsGX0EQg4OsU7dxo6LuH9862I-nSo_1g/exec"; 
-    let currentSheet = "";
-    let playlist = [];
-    let playlistIdx = 0;
-    let isAutoPlaying = false;
-
-    // 初始化入口
-    async function init() {
-      console.log("System Initializing...");
-      const savedSheet = localStorage.getItem('last_sheet');
+  function render() {
+    const app = document.getElementById('app');
+    const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
+    
+    if (filteredData.length === 0) {
+      app.innerHTML = '<div class="col-12 mt-5 text-center text-muted">目前沒有資料。</div>';
+    } else {
+      const start = (currentPage - 1) * itemsPerPage;
+      const pagedData = filteredData.slice(start, start + itemsPerPage);
+      const starredList = getStarredList();
       
-      try {
-        const response = await fetch(`${API_URL}?action=getSheets`);
-        const names = await response.json();
-        
-        if (names && names.length > 0) {
-          localStorage.setItem('cache_sheet_names', JSON.stringify(names));
-          currentSheet = (savedSheet && names.includes(savedSheet)) ? savedSheet : names[0];
-          setupSheetButtons(names);
-          await loadData();
+      let html = '';
+      pagedData.forEach(item => {
+        const isStarred = starredList.includes(String(item.id));
+        const hasEx = item.example && item.example !== "null" && item.example.trim() !== "";
+        const hasDict = item.dictUrl && item.dictUrl !== "null" && item.dictUrl.trim() !== "";
+      
+        // --- 關鍵補強：主動偵測罕見字並轉換為圖片網址 ---
+        // 這段會把 &#x22F0C; 這種編碼直接轉成全字庫圖片，確保手機不破圖且必顯示
+        let processedWord = item.word;
+        if (processedWord.includes('&#x')) {
+          processedWord = processedWord.replace(/&#x([0-9A-Fa-f]+);/g, (match, hex) => {
+            return `<img src="https://www.cns11643.gov.tw/AIDB/png.do?components=1&font=0&code=${hex}" style="height:1.2em; vertical-align:text-bottom; filter: contrast(120%);">`;
+          });
         }
-      } catch (err) {
-        console.error("Fetch Init Error:", err);
-        // 如果 API 失敗，嘗試用快取
-        const cachedNames = JSON.parse(localStorage.getItem('cache_sheet_names') || "[]");
-        if(cachedNames.length > 0) {
-          currentSheet = cachedNames[0];
-          setupSheetButtons(cachedNames);
-          loadData();
-        }
-      }
-    }
-
-    // 載入資料
-    async function loadData() {
-      if (!currentSheet) return;
-      console.log("Loading Sheet:", currentSheet);
       
-      const cacheKey = `cache_data_${currentSheet}`;
-      const cached = localStorage.getItem(cacheKey);
-      
-      if (cached) {
-        allData = JSON.parse(cached);
-        processAndRender();
-      }
-
-      try {
-        const [dataRes, catRes] = await Promise.all([
-          fetch(`${API_URL}?sheet=${currentSheet}`),
-          fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`).catch(() => null)
-        ]);
-        
-        const newData = await dataRes.json();
-        if (newData && !newData.error) {
-          allData = newData;
-          localStorage.setItem(cacheKey, JSON.stringify(allData));
-          
-          if (catRes) {
-            const categories = await catRes.json();
-            updateCategoryUI(categories);
-          }
-          processAndRender();
-        }
-      } catch (err) {
-        console.error("Load Data Error:", err);
-      }
-    }
-
-    // 處理篩選、頁碼並渲染
-    function processAndRender() {
-      // 1. 取得儲存的分類
-      const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
-      document.getElementById('categorySelect').value = savedCat;
-      
-      // 2. 套用篩選
-      applyFilter(savedCat);
-      
-      // 3. 取得儲存的頁碼
-      const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
-      const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
-      currentPage = savedPage ? Math.min(parseInt(savedPage), totalPages) : 1;
-      if (currentPage < 1) currentPage = 1;
-      
-      render();
-    }
-
-    function applyFilter(cat) {
-      if (cat === "my_stars") {
-        const list = getStarredList();
-        filteredData = allData.filter(item => list.includes(String(item.id)));
-      } else if (cat !== "all") {
-        filteredData = allData.filter(item => item.cat === cat);
-      } else {
-        filteredData = allData;
-      }
-    }
-
-    function filterByCategory(cat) {
-      stopSequence();
-      localStorage.setItem(`last_cat_${currentSheet}`, cat);
-      localStorage.setItem(`last_page_${currentSheet}`, 1);
-      currentPage = 1;
-      applyFilter(cat);
-      render();
-    }
-
-    function render() {
-      const app = document.getElementById('app');
-      const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
-      
-      if (filteredData.length === 0) {
-        app.innerHTML = '<div class="col-12 mt-5 text-center text-muted">目前沒有資料。</div>';
-      } else {
-        const start = (currentPage - 1) * itemsPerPage;
-        const pagedData = filteredData.slice(start, start + itemsPerPage);
-        const starredList = getStarredList();
-        
-        let html = '';
-        pagedData.forEach(item => {
-          const isStarred = starredList.includes(String(item.id));
-          const hasEx = item.example && item.example !== "null" && item.example.trim() !== "";
-          const hasDict = item.dictUrl && item.dictUrl !== "null" && item.dictUrl.trim() !== "";
-          
-          html += `
-            <div class="col card-container">
-              <div class="word-card ${isStarred ? 'starred-border' : ''}" data-id="${item.id}" onclick="this.classList.toggle('is-flipped')">
-                <div class="card-front">
-                  <div class="word-header">
-                    <button class="play-icon-btn" onclick="event.stopPropagation(); jumpToAndPlay('${item.id}')">▶</button>
-                    <span class="word-title">${item.word}</span>
-                    ${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" onclick="event.stopPropagation();">📖</a>` : ''}
-                    <button class="star-btn ${isStarred ? 'active' : ''}" onclick="toggleStar('${item.id}', event)">★</button>
-                    <span class="word-no">#${item.id}</span>
-                  </div>
-                  <div class="ipa-text">${item.ipa || ''}</div>
-                  <div class="badge-group"><span class="badge bg-cat">${item.cat || '未分類'}</span></div>
-                  ${hasEx ? `<div class="example-box"><span class="example-label"><button class="play-btn-sm" onclick="event.stopPropagation(); playOnlyExample('${item.exampleAudio}', '${item.word}')">🔊</button></span>${item.example}</div>` : ''}
+        html += `
+          <div class="col card-container">
+            <div class="word-card ${isStarred ? 'starred-border' : ''}" data-id="${item.id}" onclick="this.classList.toggle('is-flipped')">
+              <div class="card-front">
+                <div class="word-header">
+                  <button class="play-icon-btn" onclick="event.stopPropagation(); jumpToAndPlay('${item.id}')">▶</button>
+                  <span class="word-title">${processedWord}</span>
+                  ${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" onclick="event.stopPropagation();">📖</a>` : ''}
+                  <button class="star-btn ${isStarred ? 'active' : ''}" onclick="toggleStar('${item.id}', event)">★</button>
+                  <span class="word-no">#${item.id}</span>
                 </div>
-                <div class="card-back">
-                  <div class="word-header"><span class="word-title text-success">解釋</span></div>
-                  <div class="mt-2 text-start flex-grow-1"><strong>華語詞義：</strong><p class="mt-2">${item.meaning || '尚未填寫'}</p></div>
-                  <div class="mt-auto text-end text-secondary small">點擊卡片翻回正面</div>
-                </div>
-              </div>
-            </div>`;
-        });
-        app.innerHTML = html;
-      }
-      
-      document.getElementById('pageInput').value = currentPage;
-      document.getElementById('totalPages').innerText = `/ ${totalPages} 頁`;
-      document.getElementById('prevBtn').disabled = (currentPage <= 1);
-      document.getElementById('nextBtn').disabled = (currentPage >= totalPages);
-      if (window.CNS11643) setTimeout(() => CNS11643.fixed(), 100);
-      // 在你的 render 函式最後
-      if (typeof CNS11643 !== 'undefined') { 
-          // 手機版建議延遲時間拉長到 500ms，確保 DOM 已經完全長出來
-          setTimeout(() => { CNS11643.fixed(); }, 500); 
-      }
+                ... (後續 HTML 維持不變) ...
+        `;
+      });
+      app.innerHTML = html;
     }
+    
+    document.getElementById('pageInput').value = currentPage;
+    document.getElementById('totalPages').innerText = `/ ${totalPages} 頁`;
+    document.getElementById('prevBtn').disabled = (currentPage <= 1);
+    document.getElementById('nextBtn').disabled = (currentPage >= totalPages);
+
+    // --- 關鍵修正：解決手機版罕見字不顯示的問題 ---
+    if (typeof CNS11643 !== 'undefined') {
+        // 第一次嘗試：立即修正
+        CNS11643.fixed();
+        
+        // 第二次嘗試：延遲 300ms（等待手機 DOM 渲染完畢）
+        setTimeout(() => { 
+            console.log("執行手機版全字庫修正...");
+            CNS11643.fixed(); 
+        }, 300);
+
+        // 第三次嘗試：延遲 1000ms（最後保險，處理載入較慢的罕見字）
+        setTimeout(() => { 
+            CNS11643.fixed(); 
+        }, 1000);
+    }
+  }
+
 
     // 分頁與標籤功能
     function changePage(s) { 
