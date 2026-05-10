@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證系統 - 自動捲動同步版</title>
+  <title>台語認證系統 - 捲動定位版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
@@ -19,8 +19,7 @@
     #slide-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: default; }
     
     .word-card { width: 100%; min-height: 280px; transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); transform-style: preserve-3d; position: relative; background: white; border-radius: 16px; border: 1px solid #e0e6ed; cursor: pointer; }
-    /* 用於停止播放後的高亮效果 */
-    .word-card.last-played { border: 3px solid #007bff; box-shadow: 0 0 15px rgba(0,123,255,0.3); }
+    .word-card.last-played { border: 4px solid #007bff !important; box-shadow: 0 0 20px rgba(0,123,255,0.4); }
     .word-card.is-flipped { transform: rotateY(180deg); }
     .word-card.playing-mode { width: 85vw !important; height: 75vh !important; max-width: 700px; max-height: 850px; margin: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.7); z-index: 2001; cursor: default; }
 
@@ -39,14 +38,11 @@
 
     .playing-mode .word-title { font-size: 4rem; }
     .playing-mode .ipa-text { font-size: 2.5rem; }
-    .playing-mode .dict-link { font-size: 2rem; }
 
     .example-box { background: #f8f9fa; padding: 15px; border-left: 5px solid #3498db; font-size: 1.5rem; color: #2c3e50; border-radius: 0 8px 8px 0; margin-top: 20px; height: 120px; overflow-y: auto; }
     .playing-mode .example-box { flex: 1; height: auto; background: #ffffff; font-size: 2rem; }
 
     #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 12px; display: none; z-index: 2200; box-shadow: 0 -5px 20px rgba(0,0,0,0.1); }
-    .nav-btn-overlay { position: absolute; top: 50%; transform: translateY(-50%); background: none; color: white; border: none; font-size: 4rem; opacity: 0.3; transition: 0.3s; z-index: 2300; }
-    .nav-btn-overlay:hover { opacity: 1; }
   </style>
 </head>
 <body>
@@ -192,7 +188,6 @@
       if (nextPage >= 1 && nextPage <= total) jumpToPage(nextPage, true);
     }
 
-    // 新增 scrollToTop 參數來控制是否回頂端
     function jumpToPage(val, scrollToTop = true) {
       currentPage = parseInt(val);
       const sel = document.getElementById('pageJumpSelect');
@@ -228,8 +223,8 @@
       const audio = document.getElementById('global-audio'); 
       document.getElementById('current-word').innerText = item.word; 
       
-      // 核心修正：播放時讓背景網頁自動捲動到該卡片位置
-      scrollToCard(item.id);
+      // 修正：延遲執行捲動，確保分頁渲染完成
+      setTimeout(() => { scrollToCard(item.id); }, 150);
 
       audio.src = item.wordAudio.replace("dl=0", "raw=1"); 
       audio.play(); 
@@ -245,15 +240,15 @@
       }; 
     }
 
-    // 新增：捲動到指定卡片位置的功能
     function scrollToCard(id) {
       const element = document.getElementById(`card-wrapper-${id}`);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // 清除之前的高亮
         document.querySelectorAll('.word-card').forEach(c => c.classList.remove('last-played'));
-        // 加上提示高亮
         element.querySelector('.word-card').classList.add('last-played');
+      } else {
+        // 如果跨頁找不到元素，強制同步分頁
+        syncPageByTrack();
       }
     }
 
@@ -261,11 +256,10 @@
     function manualNext() { if (playlistIdx < filteredData.length - 1) { playlistIdx++; syncPageByTrack(); showSlide(); } else stopSequence(); }
     function manualPrev() { if (playlistIdx > 0) { playlistIdx--; syncPageByTrack(); showSlide(); } }
     
-    // 同步分頁時不捲動到頂端，交給 scrollToCard 處理
     function syncPageByTrack() { 
       const targetPage = Math.floor(playlistIdx / itemsPerPage) + 1; 
       if (targetPage !== currentPage) { 
-        jumpToPage(targetPage, false); 
+        jumpToPage(targetPage, false); // false 代表不要捲動到最頂端
       } 
     }
 
@@ -274,11 +268,8 @@
       document.getElementById('slideshow-overlay').style.display = 'none'; 
       document.getElementById('player-container').style.display = 'none'; 
       document.getElementById('global-audio').pause(); 
-      
-      // 停止後，再次確保位置正確
       if(playlistIdx !== -1) {
-        const lastItem = filteredData[playlistIdx];
-        scrollToCard(lastItem.id);
+        setTimeout(() => { scrollToCard(filteredData[playlistIdx].id); }, 100);
       }
     }
 
