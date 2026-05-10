@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證系統 - 模式切換版</title>
+  <title>台語認證系統 - 即時定位版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
@@ -14,8 +14,7 @@
     /* 控制面板 */
     .compact-panel { background: white; padding: 10px 15px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
     .panel-item { flex: 1; min-width: 120px; }
-    .nav-group { flex: 1.5; min-width: 220px; }
-
+    
     /* 播放遮罩 (投影片模式) */
     #slideshow-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.96); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(12px); cursor: pointer; }
     #slide-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: default; }
@@ -28,6 +27,22 @@
     .card-front { border-left: 10px solid #007bff; }
     .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 10px solid #28a745; overflow-y: auto; }
     
+    /* 播放中即時亮框 (網頁模式用) */
+    .now-playing-border { 
+      outline: 4px solid #007bff !important; 
+      outline-offset: 4px; 
+      box-shadow: 0 0 15px rgba(0,123,255,0.4) !important;
+    }
+
+    /* 結束定位亮框 (黃色) */
+    .highlight-card { 
+      outline: 4px solid #ffc107 !important; 
+      outline-offset: 4px; 
+      box-shadow: 0 0 30px #ffc107 !important;
+      transform: scale(1.03);
+      z-index: 10;
+    }
+
     .card-controls-right { position: absolute; top: 15px; right: 20px; display: flex; align-items: center; gap: 12px; z-index: 10; }
     .item-id-badge { color: #adb5bd; font-size: 1rem; font-weight: bold; }
     .star-btn { font-size: 1.6rem; color: #ffc107; cursor: pointer; }
@@ -35,28 +50,8 @@
     .word-title { font-size: 2.8rem; font-weight: 700; color: #1a202c; line-height: 1.2; display: flex; align-items: center; gap: 12px; }
     .ipa-text { color: #e67e22; font-size: 1.8rem; font-family: 'Courier New', monospace; margin-top: 5px; }
     
-    .dict-link { font-size: 1.5rem; color: #0d6efd; opacity: 0.5; transition: 0.2s; text-decoration: none; }
-    .dict-link:hover { opacity: 1; transform: scale(1.2); }
-
-    .playing-mode .word-title { font-size: 4rem; }
-    .playing-mode .ipa-text { font-size: 2.5rem; }
-    .playing-mode .dict-link { font-size: 2rem; }
-
-    .example-box { background: #f8f9fa; padding: 15px; border-left: 5px solid #3498db; font-size: 1.5rem; color: #2c3e50; border-radius: 0 8px 8px 0; margin-top: 20px; height: 120px; overflow-y: auto; }
-    .playing-mode .example-box { flex: 1; height: auto; background: #ffffff; font-size: 2rem; }
-
-    /* 播放底欄 */
     #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 12px; display: none; z-index: 2200; box-shadow: 0 -5px 20px rgba(0,0,0,0.1); }
     .nav-btn-overlay { position: absolute; top: 50%; transform: translateY(-50%); background: none; color: white; border: none; font-size: 4rem; opacity: 0.3; transition: 0.3s; z-index: 2300; }
-    .nav-btn-overlay:hover { opacity: 1; }
-
-    .highlight-card { 
-      outline: 4px solid #ffc107; 
-      outline-offset: 4px; 
-      box-shadow: 0 0 30px #ffc107 !important;
-      transform: scale(1.02);
-      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-    }
   </style>
 </head>
 <body>
@@ -76,12 +71,10 @@
         <option value="web">🌐 網頁模式</option>
       </select>
     </div>
-    <div class="nav-group">
-      <div class="input-group">
-        <button class="btn btn-outline-primary" onclick="changePage(-1)">◀ 上一頁</button>
+    <div class="nav-group d-flex gap-1" style="flex: 1.5; min-width: 220px;">
+        <button class="btn btn-outline-primary" onclick="changePage(-1)">◀</button>
         <select id="pageJumpSelect" class="form-select text-center" onchange="jumpToPage(this.value)"></select>
-        <button class="btn btn-outline-primary" onclick="changePage(1)">下一頁 ▶</button>
-      </div>
+        <button class="btn btn-outline-primary" onclick="changePage(1)">▶</button>
     </div>
     <div class="d-flex gap-1">
       <button class="btn btn-success px-3 rounded-pill" onclick="playCurrentPage()">播本頁</button>
@@ -93,7 +86,7 @@
 
   <div id="player-container">
     <div class="container d-flex align-items-center gap-3">
-      <div id="current-word" class="text-primary fw-bold" style="min-width: 80px; font-size: 1.2rem;"></div>
+      <div id="current-word" class="text-primary fw-bold" style="min-width: 80px; font-size: 1.4rem;"></div>
       <audio id="global-audio" class="flex-grow-1" style="height: 40px;"></audio>
       <button id="main-play-pause-btn" class="btn btn-primary rounded-circle" style="width:50px; height:50px;" onclick="togglePlayPause()">
         <i class="bi bi-pause-fill fs-4"></i>
@@ -104,7 +97,6 @@
 
   <script>
     const API_URL = "https://script.google.com/a/macros/guo.kh.edu.tw/s/AKfycbw_OHgjTJqP6OvnIYZl2L9XkkH_DacnLfcQHipsGX0EQg4OsU7dxo6LuH9862I-nSo_1g/exec";
-    
     let allData = [], filteredData = [], currentPage = 1, itemsPerPage = 10, currentSheet = "";
     let currentMode = "none", playlistIdx = 0, isPlaying = false;
     let starredList = JSON.parse(localStorage.getItem('starred_words') || "[]");
@@ -119,27 +111,17 @@
       const audio = document.getElementById('global-audio');
       audio.onplay = () => updatePlayPauseUI(true);
       audio.onpause = () => updatePlayPauseUI(false);
-
-      window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' && isPlaying) {
-          e.preventDefault();
-          togglePlayPause();
-        }
-      });
+      window.addEventListener('keydown', (e) => { if (e.code === 'Space' && isPlaying) { e.preventDefault(); togglePlayPause(); } });
     }
 
     function togglePlayPause() {
       const audio = document.getElementById('global-audio');
-      if (audio.paused) audio.play();
-      else audio.pause();
+      audio.paused ? audio.play() : audio.pause();
     }
 
     function updatePlayPauseUI(playing) {
-      const btn = document.getElementById('main-play-pause-btn');
-      btn.innerHTML = playing ? '<i class="bi bi-pause-fill fs-4"></i>' : '<i class="bi bi-play-fill fs-4"></i>';
+      document.getElementById('main-play-pause-btn').innerHTML = playing ? '<i class="bi bi-pause-fill fs-4"></i>' : '<i class="bi bi-play-fill fs-4"></i>';
     }
-
-    function closeOnOverlay(e) { if (e.target.id === 'slideshow-overlay') stopSequence(); }
 
     async function loadData() {
       const [dataRes, catRes] = await Promise.all([
@@ -185,7 +167,6 @@
       const isStarred = starredList.includes(String(item.id));
       const hasExample = item.example && item.example !== "null" && item.example !== "";
       const hasDict = item.dictUrl && item.dictUrl !== "null" && item.dictUrl !== "";
-
       return `
         <div class="col" id="card-pos-${item.id}">
           <div class="word-card ${isOverlay ? 'playing-mode' : ''}" onclick="${isOverlay ? '' : 'this.classList.toggle(\'is-flipped\')'}">
@@ -195,13 +176,10 @@
             </div>
             <div class="card-front">
               <div class="d-flex align-items-center mb-1">
-                <button class="btn btn-primary rounded-circle me-4" style="width:50px; height:50px; flex-shrink:0;" onclick="event.stopPropagation(); playSingleSlide('${item.id}')">
+                <button class="btn btn-primary rounded-circle me-4" style="width:50px; height:50px;" onclick="event.stopPropagation(); playSingleSlide('${item.id}')">
                    <i class="bi bi-play-fill fs-4"></i>
                 </button>
-                <div class="word-title">
-                  ${item.word}
-                  ${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" onclick="event.stopPropagation();"><i class="bi bi-link-45deg"></i></a>` : ''}
-                </div>
+                <div class="word-title">${item.word}${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" onclick="event.stopPropagation();"><i class="bi bi-link-45deg"></i></a>` : ''}</div>
               </div>
               <div class="ipa-text">${item.ipa || ''}</div>
               ${hasExample ? `<div class="example-box"><span class="badge bg-secondary mb-2 fs-6">例：</span><br>${item.example}</div>` : ''}
@@ -247,11 +225,7 @@
     function startPlayback(id) { 
       isPlaying = true; 
       const uiMode = document.getElementById('playModeSelect').value;
-      
-      // 若為投影片模式才顯示遮罩
-      if (uiMode === 'slideshow') {
-        document.getElementById('slideshow-overlay').style.display = 'flex'; 
-      }
+      if (uiMode === 'slideshow') document.getElementById('slideshow-overlay').style.display = 'flex'; 
       document.getElementById('player-container').style.display = 'block'; 
       playlistIdx = filteredData.findIndex(i => String(i.id) === String(id)); 
       showSlide(); 
@@ -262,15 +236,22 @@
       const item = filteredData[playlistIdx]; 
       const uiMode = document.getElementById('playModeSelect').value;
 
-      // 同步網頁分頁，確保 DOM 存在
       syncPageByTrack();
 
-      // 投影片模式才更新中央內容
+      // 清除之前的所有「即時播放」邊框
+      document.querySelectorAll('.word-card').forEach(c => c.classList.remove('now-playing-border'));
+
       if (uiMode === 'slideshow') {
         document.getElementById('slide-content').innerHTML = createCardHTML(item, true); 
       } else {
-        // 網頁模式：自動捲動到當前卡片
-        scrollToItem(item.id);
+        // 網頁模式：捲動到目標並加上「即時」藍框
+        setTimeout(() => {
+            const el = document.getElementById(`card-pos-${item.id}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.querySelector('.word-card').classList.add('now-playing-border');
+            }
+        }, 100);
       }
 
       const audio = document.getElementById('global-audio'); 
@@ -287,13 +268,6 @@
           }, 800); 
         } else handleSequenceEnd(); 
       }; 
-    }
-
-    function scrollToItem(id) {
-      setTimeout(() => {
-        const el = document.getElementById(`card-pos-${id}`);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
     }
 
     function handleSequenceEnd() { 
@@ -317,31 +291,30 @@
       isPlaying = false; 
       document.getElementById('slideshow-overlay').style.display = 'none'; 
       document.getElementById('player-container').style.display = 'none'; 
-      const audio = document.getElementById('global-audio');
-      audio.pause(); 
+      document.getElementById('global-audio').pause(); 
       updatePlayPauseUI(false);
+      
+      // 清除所有即時藍框
+      document.querySelectorAll('.word-card').forEach(c => c.classList.remove('now-playing-border'));
 
       if (!lastPlayedItem) return;
 
-      let attempts = 0;
-      const tryCenterCard = () => {
+      // 立即嘗試定位
+      setTimeout(() => {
         const targetEl = document.getElementById(`card-pos-${lastPlayedItem.id}`);
         if (targetEl) {
           targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
           const cardInner = targetEl.querySelector('.word-card');
           if (cardInner) {
             cardInner.classList.add('highlight-card');
-            setTimeout(() => cardInner.classList.remove('highlight-card'), 2500);
+            setTimeout(() => cardInner.classList.remove('highlight-card'), 2000);
           }
-        } else if (attempts < 15) { 
-          attempts++;
-          setTimeout(tryCenterCard, 100);
         }
-      };
-      setTimeout(tryCenterCard, 200); 
+      }, 100); 
     }
 
     function switchSheet(val) { currentSheet = val; localStorage.setItem('last_sheet', val); loadData(); }
+    function closeOnOverlay(e) { if (e.target.id === 'slideshow-overlay') stopSequence(); }
     window.onload = init;
   </script>
 </body>
