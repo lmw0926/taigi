@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證系統 - 資料庫完全對接版</title>
+  <title>台語認證系統 - 最終完美版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
@@ -20,7 +20,6 @@
     #slideshow-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.96); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(12px); }
     #slide-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
     
-    /* 卡片大小：保持畫面 80% */
     .word-card { width: 100%; min-height: 280px; transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); transform-style: preserve-3d; position: relative; background: white; border-radius: 16px; border: 1px solid #e0e6ed; cursor: pointer; }
     .word-card.is-flipped { transform: rotateY(180deg); }
     .word-card.playing-mode { width: 85vw !important; height: 75vh !important; max-width: 700px; max-height: 850px; margin: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.7); z-index: 2001; }
@@ -29,23 +28,21 @@
     .card-front { border-left: 10px solid #007bff; }
     .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 10px solid #28a745; overflow-y: auto; }
     
-    /* 右側控制組 (ID & 星星) */
     .card-controls-right { position: absolute; top: 15px; right: 20px; display: flex; align-items: center; gap: 12px; z-index: 10; }
     .item-id-badge { color: #adb5bd; font-size: 1rem; font-weight: bold; }
     .star-btn { font-size: 1.6rem; color: #ffc107; cursor: pointer; }
 
-    /* 字體大小強化 */
-    .word-title { font-size: 2.8rem; font-weight: 700; color: #1a202c; line-height: 1.2; display: flex; align-items: center; gap: 10px; }
+    .word-title { font-size: 2.8rem; font-weight: 700; color: #1a202c; line-height: 1.2; display: flex; align-items: center; gap: 12px; }
     .ipa-text { color: #e67e22; font-size: 1.8rem; font-family: 'Courier New', monospace; margin-top: 5px; }
-    .dict-link { font-size: 1.2rem; color: #0d6efd; opacity: 0.6; transition: 0.2s; text-decoration: none; }
-    .dict-link:hover { opacity: 1; transform: scale(1.1); }
+    
+    /* 字典連結樣式 */
+    .dict-link { font-size: 1.5rem; color: #0d6efd; opacity: 0.5; transition: 0.2s; text-decoration: none; }
+    .dict-link:hover { opacity: 1; transform: scale(1.2); }
 
-    /* 播放模式加強 */
     .playing-mode .word-title { font-size: 4rem; }
     .playing-mode .ipa-text { font-size: 2.5rem; }
-    .playing-mode .dict-link { font-size: 1.8rem; }
+    .playing-mode .dict-link { font-size: 2rem; }
 
-    /* 例句區空間分配 */
     .example-box { background: #f8f9fa; padding: 15px; border-left: 5px solid #3498db; font-size: 1.5rem; color: #2c3e50; border-radius: 0 8px 8px 0; margin-top: 20px; height: 120px; overflow-y: auto; }
     .playing-mode .example-box { flex: 1; height: auto; background: #ffffff; font-size: 2rem; }
 
@@ -89,10 +86,10 @@
   </div>
 
   <script>
-    const API_URL = "你的_GOOGLE_SCRIPT_URL"; // 請填入你的部署網址
+    const API_URL = "https://script.google.com/a/macros/guo.kh.edu.tw/s/AKfycbw_OHgjTJqP6OvnIYZl2L9XkkH_DacnLfcQHipsGX0EQg4OsU7dxo6LuH9862I-nSo_1g/exec";
     
     let allData = [], filteredData = [], currentPage = 1, itemsPerPage = 10, currentSheet = "";
-    let playlistIdx = 0, isPlaying = false, currentMode = "none";
+    let currentMode = "none", playlistIdx = 0, isPlaying = false;
     let starredList = JSON.parse(localStorage.getItem('starred_words') || "[]");
 
     async function init() {
@@ -120,11 +117,27 @@
       render();
     }
 
+    function toggleStar(id) {
+      id = String(id);
+      starredList = starredList.includes(id) ? starredList.filter(i => i !== id) : [...starredList, id];
+      localStorage.setItem('starred_words', JSON.stringify(starredList));
+      if (document.getElementById('categorySelect').value === "my_stars") { applyFilter("my_stars"); updatePageJumpSelect(); }
+      render();
+    }
+
     function applyFilter(cat) {
       document.getElementById('categorySelect').value = cat;
       if (cat === "my_stars") filteredData = allData.filter(item => starredList.includes(String(item.id)));
       else if (cat !== "all") filteredData = allData.filter(item => item.cat === cat);
       else filteredData = allData;
+    }
+
+    function handleCategoryChange(val) {
+      localStorage.setItem(`last_cat_${currentSheet}`, val);
+      applyFilter(val);
+      currentPage = 1;
+      updatePageJumpSelect();
+      render();
     }
 
     function render() {
@@ -138,8 +151,7 @@
     function createCardHTML(item, isOverlay = false) {
       const isStarred = starredList.includes(String(item.id));
       const hasExample = item.example && item.example !== "null" && item.example !== "";
-      
-      // 關鍵對接：使用你後端輸出的 dictUrl 變數名稱
+      // 判斷是否有字典連結 (對接後端 dictUrl 欄位)
       const hasDict = item.dictUrl && item.dictUrl !== "null" && item.dictUrl !== "";
 
       return `
@@ -156,10 +168,7 @@
                 </button>
                 <div class="word-title">
                   ${item.word}
-                  ${hasDict ? `
-                  <a href="${item.dictUrl}" target="_blank" class="dict-link" onclick="event.stopPropagation();">
-                    <i class="bi bi-link-45deg"></i>
-                  </a>` : ''}
+                  ${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" onclick="event.stopPropagation();"><i class="bi bi-link-45deg"></i></a>` : ''}
                 </div>
               </div>
               <div class="ipa-text">${item.ipa || ''}</div>
@@ -170,14 +179,26 @@
         </div>`;
     }
 
-    /* 記憶與分頁同步邏輯 */
-    function toggleStar(id) { id = String(id); starredList = starredList.includes(id) ? starredList.filter(i => i !== id) : [...starredList, id]; localStorage.setItem('starred_words', JSON.stringify(starredList)); if (document.getElementById('categorySelect').value === "my_stars") { applyFilter("my_stars"); updatePageJumpSelect(); } render(); }
-    function handleCategoryChange(val) { localStorage.setItem(`last_cat_${currentSheet}`, val); applyFilter(val); currentPage = 1; updatePageJumpSelect(); render(); }
-    function changePage(s) { const total = Math.ceil(filteredData.length / itemsPerPage); const nextPage = currentPage + s; if (nextPage >= 1 && nextPage <= total) jumpToPage(nextPage); }
-    function jumpToPage(val) { currentPage = parseInt(val); document.getElementById('pageJumpSelect').value = currentPage; render(); window.scrollTo(0,0); }
-    function updatePageJumpSelect() { const total = Math.ceil(filteredData.length / itemsPerPage) || 1; let options = ""; for(let i=1; i<=total; i++) options += `<option value="${i}" ${i===currentPage?'selected':''}>第 ${i} 頁</option>`; document.getElementById('pageJumpSelect').innerHTML = options; }
-    
-    /* 播放控制邏輯 */
+    function changePage(s) {
+      const total = Math.ceil(filteredData.length / itemsPerPage);
+      const nextPage = currentPage + s;
+      if (nextPage >= 1 && nextPage <= total) jumpToPage(nextPage);
+    }
+
+    function jumpToPage(val) {
+      currentPage = parseInt(val);
+      document.getElementById('pageJumpSelect').value = currentPage; 
+      render();
+      window.scrollTo(0,0);
+    }
+
+    function updatePageJumpSelect() {
+      const total = Math.ceil(filteredData.length / itemsPerPage) || 1;
+      let options = "";
+      for(let i=1; i<=total; i++) options += `<option value="${i}" ${i===currentPage?'selected':''}>第 ${i} 頁</option>`;
+      document.getElementById('pageJumpSelect').innerHTML = options;
+    }
+
     function toggleFlip(el) { el.querySelector('.word-card').classList.toggle('is-flipped'); }
     function playSingleSlide(id) { currentMode = "single"; startPlayback(id); }
     function playCurrentPage() { currentMode = "page"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
