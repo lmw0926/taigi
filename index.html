@@ -266,40 +266,47 @@
     
       if (!lastPlayedItem) return;
     
-      // 1. 強制切換到正確的頁次
+      // 1. 強制確保分頁正確
       const targetPage = Math.floor(playlistIdx / itemsPerPage) + 1;
       if (currentPage !== targetPage) {
-        // 這裡設為 false 代表不要讓 jumpToPage 自己捲動到頂部，我們要自己控制位置
         jumpToPage(targetPage, false); 
       }
     
-      // 2. 核心修正：給予足夠的延遲 (300ms)，確保瀏覽器已經把卡片「畫」出來
-      setTimeout(() => {
+      // 2. 使用「遞迴檢查」機制，確保卡片元素真的長出來了才捲動
+      let retryCount = 0;
+      const tryScroll = () => {
         const targetEl = document.getElementById(`card-pos-${lastPlayedItem.id}`);
         
         if (targetEl) {
-          // 3. 執行捲動：平滑捲動，並置於視窗中心
+          // 成功找到卡片，執行捲動
           targetEl.scrollIntoView({ 
             behavior: 'smooth', 
             block: 'center' 
           });
     
-          // 4. 加個亮框特效，讓你知道停在哪裡
+          // 顯眼的黃色高亮特效
           const cardInner = targetEl.querySelector('.word-card');
           if (cardInner) {
-            cardInner.style.transition = "all 0.5s";
-            cardInner.style.boxShadow = "0 0 25px #ffc107";
+            cardInner.classList.add('highlight-card');
+            // 額外強制加上樣式以防 CSS 沒讀到
+            cardInner.style.boxShadow = "0 0 30px #ffc107";
             cardInner.style.border = "4px solid #ffc107";
             
             setTimeout(() => {
+              cardInner.classList.remove('highlight-card');
               cardInner.style.boxShadow = "";
               cardInner.style.border = "";
-            }, 2000);
+            }, 2500);
           }
-        } else {
-          console.log("找不到元素：", `card-pos-${lastPlayedItem.id}`);
+        } else if (retryCount < 10) {
+          // 如果還沒長出來，每 100ms 再試一次，最多試 1 秒
+          retryCount++;
+          setTimeout(tryScroll, 100);
         }
-      }, 300); 
+      };
+    
+      // 啟動偵測
+      setTimeout(tryScroll, 150); 
     }
 
     function switchSheet(val) { currentSheet = val; localStorage.setItem('last_sheet', val); loadData(); }
