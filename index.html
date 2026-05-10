@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證系統 - 播放強化版</title>
+  <title>台語認證系統 - 響應式播放版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
@@ -40,17 +40,28 @@
     }
     .word-card.is-flipped { transform: rotateY(180deg); }
 
-    /* 播放模式：整體卡片加大 */
+    /* 播放模式：響應式放大 */
+    /* 預設手機版 1.5倍 */
     .word-card.playing-mode { 
-      transform: scale(1.05); 
-      min-height: 520px !important; 
-      box-shadow: 0 15px 40px rgba(0,0,0,0.6); 
+      transform: scale(1.5); 
+      min-height: 480px !important; 
+      box-shadow: 0 20px 50px rgba(0,0,0,0.7); 
+      z-index: 2001;
     }
+
+    /* 寬螢幕版 1.3倍 */
+    @media (min-width: 768px) {
+      .word-card.playing-mode {
+        transform: scale(1.3);
+        min-height: 520px !important;
+      }
+    }
+
     .word-card.no-example.playing-mode { min-height: 320px !important; }
 
     .card-front, .card-back { 
       position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-      backface-visibility: hidden; border-radius: 16px; padding: 25px; 
+      backface-visibility: hidden; border-radius: 16px; padding: 20px; 
       display: flex; flex-direction: column;
     }
     .card-front { border-left: 8px solid #007bff; }
@@ -58,47 +69,51 @@
     
     .item-id-badge {
       position: absolute; top: 12px; right: 18px;
-      color: #adb5bd; font-size: 0.85rem; font-weight: bold;
+      color: #adb5bd; font-size: 0.8rem; font-weight: bold;
     }
 
-    /* --- 例句區：固定大小與滾動 --- */
+    /* --- 例句區：空間最大化 --- */
     .example-box { 
-      background: #f8f9fa; padding: 15px; border-left: 4px solid #3498db; 
-      font-size: 1.4rem; color: #2c3e50; border-radius: 0 8px 8px 0; 
-      margin-top: 15px;
-      height: 110px; /* 預設高度 */
-      overflow-y: auto; transition: height 0.4s ease;
+      background: #f8f9fa; padding: 12px; border-left: 4px solid #3498db; 
+      font-size: 1.3rem; color: #2c3e50; border-radius: 0 8px 8px 0; 
+      margin-top: 10px;
+      height: 100px; /* 平時固定 */
+      overflow-y: auto; transition: all 0.4s ease;
     }
 
-    /* 播放模式：例句區同步加大 */
+    /* 播放模式時，例句區充份利用空間 */
     .playing-mode .example-box {
-      height: 220px; /* 播放時放大 */
+      flex-grow: 1; /* 自動填滿剩餘空間 */
+      height: auto; 
+      min-height: 250px; 
       background: #ffffff;
-      font-size: 1.6rem;
+      font-size: 1.5rem;
+      margin-bottom: 10px;
     }
 
     .example-box::-webkit-scrollbar { width: 6px; }
     .example-box::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 10px; }
 
     .word-title { font-size: 2.2rem; font-weight: 700; color: #1a202c; }
-    .ipa-text { color: #e67e22; font-size: 1.5rem; margin-left: 50px; font-family: monospace; }
+    .ipa-text { color: #e67e22; font-size: 1.4rem; margin-left: 50px; font-family: monospace; }
 
     /* --- 播放控制列 --- */
     #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 10px; display: none; z-index: 2200; box-shadow: 0 -5px 20px rgba(0,0,0,0.1); }
     
     .nav-btn-overlay {
       position: absolute; top: 50%; transform: translateY(-50%);
-      background: none; color: white; border: none; font-size: 3.5rem; opacity: 0.4; transition: 0.3s;
+      background: none; color: white; border: none; font-size: 3rem; opacity: 0.3; transition: 0.3s;
+      z-index: 2300;
     }
-    .nav-btn-overlay:hover { opacity: 1; scale: 1.1; }
+    .nav-btn-overlay:hover { opacity: 1; }
   </style>
 </head>
 <body>
 
   <div id="slideshow-overlay">
-    <button class="nav-btn-overlay" style="left: 10px;" onclick="manualPrev()"><i class="bi bi-chevron-left"></i></button>
-    <div id="slide-content"></div>
-    <button class="nav-btn-overlay" style="right: 10px;" onclick="manualNext()"><i class="bi bi-chevron-right"></i></button>
+    <button class="nav-btn-overlay" style="left: 5px;" onclick="manualPrev()"><i class="bi bi-chevron-left"></i></button>
+    <div id="slide-content" onclick="toggleSlideFlip(this)"></div>
+    <button class="nav-btn-overlay" style="right: 5px;" onclick="manualNext()"><i class="bi bi-chevron-right"></i></button>
   </div>
 
   <div class="compact-panel">
@@ -141,7 +156,6 @@
       const names = await response.json();
       const savedSheet = localStorage.getItem('last_sheet');
       currentSheet = (savedSheet && names.includes(savedSheet)) ? savedSheet : names[0];
-      
       document.getElementById('sheetSelect').innerHTML = names.map(n => `<option value="${n}" ${n===currentSheet?'selected':''}>📚 ${n}</option>`).join('');
       await loadData();
     }
@@ -152,21 +166,15 @@
         fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`).catch(() => null)
       ]);
       allData = await dataRes.json();
-      
       if(catRes) {
         const cats = await catRes.json();
-        document.getElementById('categorySelect').innerHTML = '<option value="all">📂 全部類別</option><option value="my_stars">⭐ 我的收藏</option>' + 
-          cats.map(c => `<option value="${c}">${c}</option>`).join('');
+        document.getElementById('categorySelect').innerHTML = '<option value="all">📂 全部類別</option><option value="my_stars">⭐ 我的收藏</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
       }
-
       const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
       document.getElementById('categorySelect').value = savedCat;
       applyFilter(savedCat);
-      
       const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
-      const savedPage = localStorage.getItem(`last_page_${currentSheet}`) || 1;
-      currentPage = Math.min(parseInt(savedPage), totalPages);
-      
+      currentPage = Math.min(parseInt(localStorage.getItem(`last_page_${currentSheet}`) || 1), totalPages);
       updatePageJumpSelect(totalPages);
       render();
     }
@@ -183,17 +191,14 @@
     function updatePageJumpSelect(total) {
       const select = document.getElementById('pageJumpSelect');
       let options = "";
-      for(let i=1; i<=total; i++) {
-        options += `<option value="${i}" ${i===currentPage?'selected':''}>第 ${i} 頁</option>`;
-      }
+      for(let i=1; i<=total; i++) options += `<option value="${i}" ${i===currentPage?'selected':''}>第 ${i} 頁</option>`;
       select.innerHTML = options;
     }
 
     function render() {
       const app = document.getElementById('app');
       const start = (currentPage - 1) * itemsPerPage;
-      const pagedData = filteredData.slice(start, start + itemsPerPage);
-      app.innerHTML = pagedData.map(item => createCardHTML(item)).join('');
+      app.innerHTML = filteredData.slice(start, start + itemsPerPage).map(item => createCardHTML(item)).join('');
       localStorage.setItem(`last_page_${currentSheet}`, currentPage);
       if (window.CNS11643) setTimeout(() => CNS11643.fixed(), 150);
     }
@@ -202,10 +207,9 @@
       const hasExample = item.example && item.example.trim() !== "" && item.example !== "null";
       const playClass = isOverlay ? 'playing-mode' : '';
       const exampleClass = !hasExample ? 'no-example' : '';
-
       return `
         <div class="col card-container">
-          <div class="word-card ${playClass} ${exampleClass}" onclick="this.classList.toggle('is-flipped')">
+          <div class="word-card ${playClass} ${exampleClass}" onclick="${isOverlay ? '' : "this.classList.toggle('is-flipped')" }">
             <span class="item-id-badge">#${item.id}</span>
             <div class="card-front">
               <div class="d-flex align-items-center mb-1">
@@ -215,11 +219,7 @@
                 <span class="word-title">${item.word}</span>
               </div>
               <div class="ipa-text">${item.ipa || ''}</div>
-              ${hasExample ? `
-                <div class="example-box">
-                  <span class="badge bg-secondary mb-1">例：</span><br>${item.example}
-                </div>
-              ` : ''}
+              ${hasExample ? `<div class="example-box"><span class="badge bg-secondary mb-1">例：</span><br>${item.example}</div>` : ''}
             </div>
             <div class="card-back">
               <div class="p-1">
@@ -231,10 +231,11 @@
         </div>`;
     }
 
-    // --- 播放與翻頁邏輯 ---
-    function playSingleSlide(id) { currentMode = "single"; startPlayback(id); }
-    function playCurrentPage() { currentMode = "page"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
-    function playAllContinuous() { currentMode = "all"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
+    // --- 播放邏輯與點擊翻面 ---
+    function toggleSlideFlip(container) {
+      const card = container.querySelector('.word-card');
+      if (card) card.classList.toggle('is-flipped');
+    }
 
     function startPlayback(id) {
       isPlaying = true;
@@ -250,49 +251,34 @@
       const item = playlist[playlistIdx];
       const slideBox = document.getElementById('slide-content');
       slideBox.innerHTML = createCardHTML(item, true);
-      
       const audio = document.getElementById('global-audio');
       document.getElementById('current-word').innerText = `播報: ${item.word}`;
       audio.src = item.wordAudio.replace("dl=0", "raw=1");
       audio.play();
-      
       audio.onended = () => {
         if (item.exampleAudio) {
           setTimeout(() => { if(!isPlaying) return; audio.src = item.exampleAudio.replace("dl=0", "raw=1"); audio.play(); audio.onended = handleSequenceEnd; }, 800);
-        } else { handleSequenceEnd(); }
+        } else handleSequenceEnd();
       };
     }
 
     function handleSequenceEnd() {
-      if (!isPlaying) return;
-      if (currentMode === "single") { stopSequence(); return; }
+      if (!isPlaying || currentMode === "single") { if(currentMode === "single") stopSequence(); return; }
       if (currentMode === "page" && playlistIdx >= (currentPage * itemsPerPage) - 1) { stopSequence(); return; }
       manualNext();
     }
 
     function manualNext() {
-      if (playlistIdx < playlist.length - 1) {
-        playlistIdx++;
-        syncPageByTrack();
-        showSlide();
-      } else { stopSequence(); }
+      if (playlistIdx < playlist.length - 1) { playlistIdx++; syncPageByTrack(); showSlide(); } else stopSequence();
     }
 
     function manualPrev() {
-      if (playlistIdx > 0) {
-        playlistIdx--;
-        syncPageByTrack();
-        showSlide();
-      }
+      if (playlistIdx > 0) { playlistIdx--; syncPageByTrack(); showSlide(); }
     }
 
     function syncPageByTrack() {
       const targetPage = Math.floor(playlistIdx / itemsPerPage) + 1;
-      if (targetPage !== currentPage) {
-        currentPage = targetPage;
-        document.getElementById('pageJumpSelect').value = currentPage;
-        render();
-      }
+      if (targetPage !== currentPage) { currentPage = targetPage; document.getElementById('pageJumpSelect').value = currentPage; render(); }
     }
 
     function stopSequence() {
@@ -302,17 +288,13 @@
       document.getElementById('global-audio').pause();
     }
 
-    // --- 連動與翻頁 ---
     function switchSheet(val) { currentSheet = val; localStorage.setItem('last_sheet', val); loadData(); }
     function filterByCategory(val) { localStorage.setItem(`last_cat_${currentSheet}`, val); applyFilter(val); currentPage = 1; updatePageJumpSelect(Math.ceil(filteredData.length / itemsPerPage)); render(); }
     function jumpToPage(val) { currentPage = parseInt(val); render(); window.scrollTo(0,0); }
     function changePage(s) {
       const total = Math.ceil(filteredData.length / itemsPerPage);
-      if (currentPage + s >= 1 && currentPage + s <= total) {
-        jumpToPage(currentPage + s);
-      }
+      if (currentPage + s >= 1 && currentPage + s <= total) jumpToPage(currentPage + s);
     }
-
     window.onload = init;
   </script>
 </body>
