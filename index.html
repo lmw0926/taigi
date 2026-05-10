@@ -4,89 +4,107 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證練習系統 - 滿版強化版</title>
+  <title>台語認證練習系統 - 客語版放大模式</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
     
-    body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8f9fa; padding: 15px; padding-bottom: 140px !important; }
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: #f8f9fa; 
+      padding: 15px; 
+      padding-bottom: 140px !important; 
+    }
 
-    /* --- 卡片容器 --- */
-    .card-container { perspective: 1000px; margin-bottom: 20px; }
-    
+    /* 播放時的發亮與加高效果 */
+    @keyframes pulse-blue {
+      0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
+      70% { box-shadow: 0 0 0 15px rgba(0, 123, 255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+    }
+    .playing-highlight {
+      border: 3px solid #007bff !important;
+      animation: pulse-blue 2s infinite;
+      transform: scale(1.02);
+      z-index: 10;
+      background-color: #eef7ff !important;
+      min-height: 450px !important; 
+    }
+
+    /* 卡片基礎設計 */
+    .card-container { perspective: 1000px; margin-bottom: 20px; position: relative; }
     .word-card { 
       width: 100%; 
       min-height: 280px; 
-      transition: transform 0.6s, min-height 0.4s ease; 
+      transition: transform 0.6s, min-height 0.4s ease, box-shadow 0.3s; 
       transform-style: preserve-3d; 
       position: relative; 
-      cursor: pointer; 
+      cursor: pointer;
+      background-color: white;
+      border-radius: 12px;
+      border: 1px solid #ddd;
     }
-
-    /* 播放例句時：強制加高至 500px */
-    .word-card.expanded { min-height: 500px !important; }
     .word-card.is-flipped { transform: rotateY(180deg); }
 
     .card-front, .card-back { 
       position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-      backface-visibility: hidden; border-radius: 12px; 
-      border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.08); 
-      display: flex; flex-direction: column; background: white; overflow: hidden;
+      backface-visibility: hidden; border-radius: 12px; padding: 20px; 
+      display: flex; flex-direction: column; overflow: hidden;
     }
 
-    .card-front { border-left: 6px solid #007bff; z-index: 2; position: relative; padding: 20px; }
-    .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 6px solid #28a745; padding: 20px; }
+    .card-front { border-left: 6px solid #007bff; z-index: 2; }
+    .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 6px solid #28a745; overflow-y: auto; }
     
-    .word-card.starred-border .card-front { border-left-color: #f1c40f; background-color: #fffdf0; }
-    .playing-now { box-shadow: 0 0 25px #007bff !important; border: 2px solid #007bff !important; }
+    .word-card.starred-border { background-color: #fffdf0 !important; }
+    .word-card.starred-border .card-front { border-left: 6px solid #f1c40f; }
 
-    /* --- 例句區塊：關鍵在於 flex 佈局 --- */
+    /* 例句框設計 (參考客語版) */
     .example-box { 
-      background: #f1f3f5; padding: 12px; border-left: 4px solid #3498db; 
-      font-size: 1.5rem; color: #34495e; border-radius: 0 4px 4px 0; 
-      margin-top: 10px;
-      /* 讓例句框填滿卡片剩餘高度 */
-      flex: 1 1 auto; 
-      display: flex;
-      flex-direction: column;
+      background: #f1f3f5; 
+      padding: 10px; 
+      border-left: 4px solid #3498db; 
+      font-size: 1.5rem; 
+      color: #34495e; 
+      border-radius: 0 4px 4px 0; 
+      flex-grow: 1; 
+      transition: all 0.4s ease-in-out;
       overflow-y: auto; 
-      transition: all 0.3s ease;
+      line-height: 1.5; 
+      text-align: left;
       cursor: zoom-in;
+      position: relative;
     }
 
-    /* 修正：例句點擊後放大至覆蓋整面 */
-    .example-box.example-active {
-      position: absolute !important;
-      top: 0 !important; left: 0 !important;
-      width: 100% !important;
-      height: 100% !important;
-      z-index: 999 !important; /* 確保在最上層 */
-      background-color: #ffffff !important;
-      padding: 30px !important;
-      font-size: 2.2rem !important;
-      border-left: 10px solid #e67e22 !important;
+    /* 放大狀態：覆蓋整張卡片 */
+    .example-box.expanded {
+      position: absolute;
+      top: 10px; left: 10px; right: 10px; bottom: 10px;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.98);
+      border: 2px solid #3498db;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
       cursor: zoom-out;
-      justify-content: center;
+      overflow-y: auto;
+      font-size: 2.2rem; /* 放大字體 */
     }
 
-    .example-label { font-size: 0.85rem; color: #7f8c8d; font-weight: bold; margin-bottom: 4px; display: block; }
-    .example-active .example-label { font-size: 1.2rem; color: #e67e22; margin-bottom: 15px; }
+    .example-label { font-size: 0.9rem; color: #7f8c8d; font-weight: bold; margin-right: 5px; }
 
-    /* --- 其他元件 --- */
+    /* 其他元件 */
     .word-header { display: flex; align-items: center; margin-bottom: 10px; width: 100%; }
     .word-title { font-size: 2rem; color: #2c3e50; font-weight: bold; }
     .word-no { font-size: 0.85rem; color: #95a5a6; margin-left: auto; }
-    .dict-link { text-decoration: none; font-size: 1.1rem; margin-left: 10px; color: #198754; }
-    .ipa-text { color: #e67e22; font-size: 1.5rem; margin-left: 47px; margin-bottom: 8px; }
+    .ipa-text { color: #e67e22; font-size: 1.5rem; margin-bottom: 8px; margin-left: 47px; }
     .badge-group { margin-bottom: 12px; margin-left: 47px; display: flex; gap: 5px; }
     .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; background-color: #2ecc71; color: white; }
 
-    .play-icon-btn { background: #007bff; color: white; border-radius: 50%; width: 36px; height: 36px; border: none; margin-right: 12px; flex-shrink: 0; }
-    .play-btn-sm { background: #3498db; color: white; border: none; border-radius: 4px; font-size: 0.7rem; padding: 2px 6px; margin-left: 8px; }
-    .star-btn { background: none; border: none; font-size: 1.6rem; color: #ccc; padding: 0 5px; }
+    .play-icon-btn { background: #007bff; color: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: none; margin-right: 12px; flex-shrink: 0; }
+    .star-btn { background: none; border: none; font-size: 1.6rem; color: #ccc; cursor: pointer; padding: 0 5px; }
     .star-btn.active { color: #f1c40f; }
     
-    #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; box-shadow: 0 -2px 15px rgba(0,0,0,0.1); padding: 15px; display: none; z-index: 1001; }
+    #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; box-shadow: 0 -2px 15px rgba(0,0,0,0.1); padding: 15px; display: none; z-index: 1000; }
     .player-flex { display: flex; align-items: center; gap: 15px; max-width: 800px; margin: 0 auto; }
     #current-word { font-weight: bold; font-size: 1rem; color: #007bff; min-width: 100px; }
     audio { flex-grow: 1; height: 40px; }
@@ -164,10 +182,7 @@
     }
 
     function processAndRender() {
-      const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
-      document.getElementById('categorySelect').value = savedCat;
-      applyFilter(savedCat);
-      currentPage = 1;
+      applyFilter(document.getElementById('categorySelect').value);
       render();
     }
 
@@ -188,30 +203,21 @@
 
       app.innerHTML = pagedData.map(item => {
         const isStarred = starredList.includes(String(item.id));
-        const hasEx = item.example && item.example !== "null" && item.example.trim() !== "";
-        const hasDict = item.dictUrl && item.dictUrl !== "null" && item.dictUrl.trim() !== "";
-        
         return `
           <div class="col card-container">
-            <div class="word-card ${isStarred ? 'starred-border' : ''}" data-id="${item.id}" onclick="this.classList.toggle('is-flipped')">
+            <div class="word-card ${isStarred ? 'starred-border' : ''}" id="card-${item.id}" onclick="flipCard(this)">
               <div class="card-front">
                 <div class="word-header">
                   <button class="play-icon-btn" onclick="event.stopPropagation(); jumpToAndPlay('${item.id}')">▶</button>
                   <span class="word-title">${item.word}</span>
-                  ${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" onclick="event.stopPropagation();">📖</a>` : ''}
                   <button class="star-btn ${isStarred ? 'active' : ''}" onclick="toggleStar('${item.id}', event)">★</button>
                   <span class="word-no">#${item.id}</span>
                 </div>
                 <div class="ipa-text">${item.ipa || ''}</div>
                 <div class="badge-group"><span class="badge">${item.cat || '未分類'}</span></div>
-                ${hasEx ? `
-                  <div class="example-box" onclick="toggleExampleZoom(this, event)">
-                    <span class="example-label">
-                      💡 例句 (點擊放大)
-                      <button class="play-btn-sm" onclick="event.stopPropagation(); playOnlyExample('${item.exampleAudio}', '${item.word}', '${item.id}')">🔊</button>
-                    </span>
-                    <div class="example-content">${item.example}</div>
-                  </div>` : ''}
+                <div class="example-box" onclick="toggleExampleExpansion(this, event)">
+                  <span class="example-label">例句：</span>${item.example || '（暫無例句）'}
+                </div>
               </div>
               <div class="card-back">
                 <div class="word-header"><span class="word-title text-success">解釋</span></div>
@@ -223,14 +229,24 @@
       
       document.getElementById('pageInput').value = currentPage;
       document.getElementById('totalPages').innerText = `/ ${Math.ceil(filteredData.length / itemsPerPage) || 1} 頁`;
+      if (window.CNS11643) setTimeout(() => CNS11643.fixed(), 150);
     }
 
-    // 切換例句放大
-    function toggleExampleZoom(el, event) {
-      event.stopPropagation(); 
-      const isActive = el.classList.contains('example-active');
-      document.querySelectorAll('.example-box').forEach(b => b.classList.remove('example-active'));
-      if (!isActive) el.classList.add('example-active');
+    // 翻牌邏輯 (若例句展開中則不翻牌)
+    function flipCard(cardElement) {
+      if (cardElement.querySelector('.example-box.expanded')) return;
+      cardElement.classList.toggle('is-flipped');
+    }
+
+    // 例句放大縮小邏輯 (參考客語版)
+    function toggleExampleExpansion(element, event) {
+      event.stopPropagation();
+      if (element.classList.contains('expanded')) {
+        element.classList.remove('expanded');
+      } else {
+        document.querySelectorAll('.example-box.expanded').forEach(box => box.classList.remove('expanded'));
+        element.classList.add('expanded');
+      }
     }
 
     function playSingle(url, label) {
@@ -244,8 +260,7 @@
       isAutoPlaying = false; 
       isCrossPageMode = false;
       document.getElementById('global-audio').pause(); 
-      document.querySelectorAll('.word-card').forEach(c => { c.classList.remove('playing-now', 'expanded'); });
-      document.querySelectorAll('.example-box').forEach(b => b.classList.remove('example-active'));
+      document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-highlight'));
     }
 
     function jumpToAndPlay(id) {
@@ -258,35 +273,25 @@
     function startSeq(item) {
       if(!isAutoPlaying) return;
       document.getElementById('player-container').style.display = 'block';
-      
-      const card = document.querySelector(`[data-id="${item.id}"]`);
-      document.querySelectorAll('.word-card').forEach(c => { c.classList.remove('playing-now', 'expanded'); });
-      
+      document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-highlight'));
+
+      const card = document.getElementById('card-' + item.id);
       if(card) { 
-        card.classList.add('playing-now'); 
+        card.classList.add('playing-highlight'); 
         card.scrollIntoView({behavior:'smooth', block:'center'}); 
       }
       
       const audio = document.getElementById('global-audio');
-      
       if(item.wordAudio && item.wordAudio !== "null") {
         playSingle(item.wordAudio, "📢 " + item.word);
         audio.onended = () => {
           if(item.exampleAudio && item.exampleAudio !== "null") {
-            // 播放例句前加高卡片
-            if(card) card.classList.add('expanded');
-            setTimeout(() => { 
-              if(isAutoPlaying) { 
-                playSingle(item.exampleAudio, "📖 例句"); 
-                audio.onended = () => { if(card) card.classList.remove('expanded'); nextSeq(); };
-              } 
-            }, 800);
+            setTimeout(() => { if(isAutoPlaying) playSingle(item.exampleAudio, "📖 例句").then(() => audio.onended = nextSeq); }, 800);
           } else { nextSeq(); }
         };
       } else if(item.exampleAudio) {
-        if(card) card.classList.add('expanded');
         playSingle(item.exampleAudio, "📖 例句"); 
-        audio.onended = () => { if(card) card.classList.remove('expanded'); nextSeq(); };
+        audio.onended = nextSeq;
       } else { nextSeq(); }
     }
 
@@ -309,16 +314,7 @@
     function playAllOnPage() { isCrossPageMode = false; isAutoPlaying = true; jumpToAndPlay(filteredData[(currentPage-1)*10].id); }
     function playEverything() { isCrossPageMode = true; isAutoPlaying = true; jumpToAndPlay(filteredData[(currentPage-1)*10].id); }
     
-    function playOnlyExample(url, name, id) { 
-      stopSequence(); 
-      const card = document.querySelector(`[data-id="${id}"]`);
-      if(card) card.classList.add('expanded');
-      document.getElementById('player-container').style.display='block'; 
-      playSingle(url, "📖 例句："+name); 
-      document.getElementById('global-audio').onended = () => { if(card) card.classList.remove('expanded'); };
-    }
-
-    function filterByCategory(cat) { stopSequence(); localStorage.setItem(`last_cat_${currentSheet}`, cat); processAndRender(); }
+    function filterByCategory(cat) { stopSequence(); currentPage = 1; applyFilter(cat); render(); }
     function changePage(s) { currentPage += s; render(); window.scrollTo(0,0); }
     function jumpToPage(v) { const p = parseInt(v); if (p >= 1) { currentPage = p; render(); } }
     function setupSheetButtons(names) { document.getElementById('sheet-buttons').innerHTML = names.map(n => `<button class="btn btn-sm ${n===currentSheet?'btn-primary':'btn-outline-primary'}" onclick="switchSheet('${n}')">${n}</button>`).join(''); }
