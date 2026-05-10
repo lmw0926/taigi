@@ -177,16 +177,21 @@
     function fixRareChars(text) {
       if (!text) return "";
       
-      // 1. 先處理十進位格式 &#143116; (如果有的話)
-      text = text.replace(/&#(\d+);/g, (match, dec) => {
-        let hex = parseInt(dec, 10).toString(16);
-        return `<img src="https://www.cns11643.gov.tw/AIDB/png.do?components=1&font=0&code=${hex}" style="height:1.2em; vertical-align:middle; filter: contrast(150%);">`;
+      // 1. 處理十六進位編碼 &#x22F0C; -> 直接轉為全字庫 PNG
+      // 網址強制改用最精簡格式，避免手機瀏覽器阻擋
+      text = text.replace(/&#[xX]([0-9A-Fa-f]+);?/g, (match, hex) => {
+        const code = hex.toLowerCase();
+        // 使用全字庫最基礎的 PNG 輸出介面
+        return `<img src="https://www.cns11643.gov.tw/AIDB/png.do?components=1&font=0&code=${code}" 
+                     style="height:1.2em; vertical-align:middle; display:inline-block;" 
+                     onerror="this.src='https://www.cns11643.gov.tw/AIDB/static/images/error.png'">`;
       });
     
-      // 2. 處理十六進位格式 &#x22F0C; 
-      // 這裡強制把 hex 轉成小寫，因為全字庫官網有時不吃大寫代碼
-      text = text.replace(/&#x([0-9A-Fa-f]+);?/g, (match, hex) => {
-        return `<img src="https://www.cns11643.gov.tw/AIDB/png.do?components=1&font=0&code=${hex.toLowerCase()}" style="height:1.2em; vertical-align:middle; filter: contrast(150%);">`;
+      // 2. 處理十進位編碼 &#143116; (對應你的截圖 143116)
+      text = text.replace(/&#(\d+);/g, (match, dec) => {
+        let hex = parseInt(dec, 10).toString(16);
+        return `<img src="https://www.cns11643.gov.tw/AIDB/png.do?components=1&font=0&code=${hex}" 
+                     style="height:1.2em; vertical-align:middle; display:inline-block;">`;
       });
     
       return text;
