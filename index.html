@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
+  <meta name="referrer" content="no-referrer">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>台語認證練習系統</title>
@@ -177,15 +177,19 @@
     function fixRareChars(text) {
       if (!text) return "";
       
-      // 將 &#x22F0C; 這種格式轉換為全字庫的 PNG 圖片標籤
-      // 這裡調整了網址參數，確保它在手機上更容易被顯示
-      return text.replace(/&#[xX]([0-9A-Fa-f]+);/g, (match, hex) => {
-        // 使用全字庫 AIDB 的 png.do 介面，並加上一些縮放設定
-        const imageUrl = `https://www.cns11643.gov.tw/AIDB/png.do?components=1&font=0&code=${hex.toLowerCase()}`;
-        return `<img src="${imageUrl}" 
-                     alt="罕見字" 
-                     style="height: 1.1em; width: auto; vertical-align: middle; display: inline-block; margin: 0 2px; filter: brightness(0.8) contrast(1.5);">`;
+      // 1. 先處理十進位格式 &#143116; (如果有的話)
+      text = text.replace(/&#(\d+);/g, (match, dec) => {
+        let hex = parseInt(dec, 10).toString(16);
+        return `<img src="https://www.cns11643.gov.tw/AIDB/png.do?components=1&font=0&code=${hex}" style="height:1.2em; vertical-align:middle; filter: contrast(150%);">`;
       });
+    
+      // 2. 處理十六進位格式 &#x22F0C; 
+      // 這裡強制把 hex 轉成小寫，因為全字庫官網有時不吃大寫代碼
+      text = text.replace(/&#x([0-9A-Fa-f]+);?/g, (match, hex) => {
+        return `<img src="https://www.cns11643.gov.tw/AIDB/png.do?components=1&font=0&code=${hex.toLowerCase()}" style="height:1.2em; vertical-align:middle; filter: contrast(150%);">`;
+      });
+    
+      return text;
     }
 
     function render() {
