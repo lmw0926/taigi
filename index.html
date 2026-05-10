@@ -207,7 +207,7 @@
                 <div class="word-title">${item.word}${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" style="font-size:1.5rem; opacity:0.5; color:#0d6efd;" onclick="event.stopPropagation();"><i class="bi bi-link-45deg"></i></a>` : ''}</div>
               </div>
               <div class="ipa-text">${item.ipa || ''}</div>
-              ${hasExample ? `<div class="example-box" onclick="handleExampleToggle(event, this)"><span class="badge bg-secondary mb-2 fs-6">例：</span><br>${item.example}</div>` : ''}
+              ${hasExample ? `<div class="example-box" onclick="handleExampleToggle(event, this)"><span class="badge bg-secondary mb-2 fs-6">例</span>${item.example}</div>` : ''}
             </div>
             <div class="card-back"><div class="p-3"><h4 class="text-success border-bottom pb-2">【解釋】</h4><p style="font-size: 1.6rem;">${item.meaning || '尚未提供'}</p></div></div>
           </div>`;
