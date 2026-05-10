@@ -238,25 +238,35 @@ function canRenderChar(char) {
   // ===== 畫 tofu =====
   ctx.clearRect(0, 0, 80, 80);
   ctx.fillText("\uFFFD", 0, 0);
+  function getFingerprint(data) {
+  
+    let sum = 0;
+  
+    for (let i = 0; i < data.length; i += 16) {
+      sum += data[i];
+    }
+  
+    return sum;
+  }
+  const tofuData =
+  ctx.getImageData(0,0,80,80).data;
 
   const tofu =
-    ctx.getImageData(0, 0, 80, 80).data.join("");
-
-  // ===== 畫目標字 =====
-  ctx.clearRect(0, 0, 80, 80);
-  ctx.fillText(char, 0, 0);
-
+    getFingerprint(tofuData);
+  
+  ctx.clearRect(0,0,80,80);
+  ctx.fillText(char,0,0);
+  
+  const glyphData =
+    ctx.getImageData(0,0,80,80).data;
+  
   const glyph =
-    ctx.getImageData(0, 0, 80, 80).data.join("");
-
-  // ===== 比對 =====
+    getFingerprint(glyphData);
+  
   const ok =
-    glyph !== tofu &&
-    glyph.length > 0;
+    glyph !== tofu;
 
-  glyphCache[char] = ok;
-
-  return ok;
+  
 }
 
 // ===== CNS fallback =====
