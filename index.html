@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證系統 - 投影片優化版</title>
+  <title>台語認證系統 - 完美置中版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
@@ -15,53 +15,70 @@
     .compact-panel { background: white; padding: 10px 15px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
     .panel-item { flex: 1; min-width: 120px; }
     
-    /* 投影片模式遮罩 */
+    /* 投影片模式遮罩 - 修正置中邏輯 */
     #slideshow-overlay { 
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
       background: rgba(0, 0, 0, 0.96); z-index: 3000; display: none; 
-      align-items: center; justify-content: center; backdrop-filter: blur(12px); 
-      cursor: pointer; 
+      align-items: center; justify-content: center; backdrop-filter: blur(15px); 
+      cursor: pointer; overflow: hidden;
     }
-    #slide-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: default; }
     
-    /* 離開與導覽按鈕 */
+    /* 卡片容器 - 確保內部絕對居中 */
+    #slide-content { 
+      width: 100%; height: 100%; 
+      display: flex; align-items: center; justify-content: center; 
+      cursor: default; padding: 20px;
+    }
+    
+    /* 投影片模式下的卡片外層 - 修正歪掉的問題 */
+    .overlay-card-wrapper {
+      width: 90%; max-width: 800px;
+      display: flex; justify-content: center; align-items: center;
+    }
+
+    /* 導覽按鈕 - 使用絕對定位，不佔空間 */
     .close-overlay-btn { 
       position: absolute; top: 20px; right: 20px; 
       background: rgba(255,255,255,0.1); color: white; border: none; 
-      font-size: 2.5rem; width: 60px; height: 60px; border-radius: 50%; 
-      z-index: 3200; transition: 0.3s; display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; width: 50px; height: 50px; border-radius: 50%; 
+      z-index: 3500; transition: 0.3s; display: flex; align-items: center; justify-content: center;
     }
     .close-overlay-btn:hover { background: rgba(255,0,0,0.6); transform: rotate(90deg); }
-    .nav-btn-overlay { position: absolute; top: 50%; transform: translateY(-50%); background: none; color: white; border: none; font-size: 4rem; opacity: 0.3; transition: 0.3s; z-index: 3100; }
-    .nav-btn-overlay:hover { opacity: 1; }
+    
+    .nav-btn-overlay { 
+      position: absolute; top: 50%; transform: translateY(-50%); 
+      background: none; color: white; border: none; font-size: 5rem; 
+      opacity: 0.2; transition: 0.3s; z-index: 3400; padding: 20px;
+    }
+    .nav-btn-overlay:hover { opacity: 1; transform: translateY(-50%) scale(1.1); }
 
-    /* 卡片樣式 */
+    /* 卡片基礎樣式 */
     .col { scroll-margin-top: 85px; }
-    .word-card { width: 100%; min-height: 280px; transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1); transform-style: preserve-3d; position: relative; background: white; border-radius: 16px; border: 1px solid #e0e6ed; cursor: pointer; }
+    .word-card { width: 100%; min-height: 280px; transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1); transform-style: preserve-3d; position: relative; background: white; border-radius: 20px; border: 1px solid #e0e6ed; cursor: pointer; }
     .word-card.is-flipped { transform: rotateY(180deg); }
     .playing-height { min-height: 420px !important; }
     
-    /* 投影片模式下的卡片尺寸放大 */
-    #slideshow-overlay .word-card { width: 85%; max-width: 800px; height: 70vh; }
+    /* 投影片模式下的卡片放大 */
+    #slideshow-overlay .word-card { height: 65vh; min-height: 500px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 
-    .card-front, .card-back { position: absolute; top: 0; left: 0; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 16px; padding: 25px; display: flex; flex-direction: column; overflow: hidden; }
-    .card-front { border-left: 10px solid #007bff; }
-    .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 10px solid #28a745; overflow-y: auto; }
+    .card-front, .card-back { position: absolute; top: 0; left: 0; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; padding: 30px; display: flex; flex-direction: column; overflow: hidden; }
+    .card-front { border-left: 12px solid #007bff; }
+    .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 12px solid #28a745; overflow-y: auto; }
     
-    .card-top-controls { position: absolute; top: 12px; right: 15px; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; z-index: 500; }
-    .item-id-badge { color: #adb5bd; font-size: 0.9rem; font-weight: bold; }
-    .star-btn { font-size: 1.8rem; color: #ffc107; cursor: pointer; transition: 0.2s; }
+    .card-top-controls { position: absolute; top: 15px; right: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; z-index: 500; }
+    .item-id-badge { color: #adb5bd; font-size: 1rem; font-weight: bold; }
+    .star-btn { font-size: 2rem; color: #ffc107; cursor: pointer; transition: 0.2s; }
 
-    .example-box { background: #f8f9fa; padding: 15px; border-left: 5px solid #3498db; font-size: 1.5rem; line-height: 1.6; color: #2c3e50; border-radius: 0 8px 8px 0; margin-top: 15px; transition: all 0.3s ease; overflow-y: auto; flex-grow: 1; position: relative; cursor: zoom-in; }
-    .example-expanded { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 400; margin-top: 0; border-radius: 16px; background: #ffffff; padding: 30px; cursor: zoom-out; }
+    .example-box { background: #f8f9fa; padding: 18px; border-left: 6px solid #3498db; font-size: 1.5rem; line-height: 1.6; color: #2c3e50; border-radius: 0 10px 10px 0; margin-top: 20px; transition: all 0.3s ease; overflow-y: auto; flex-grow: 1; position: relative; cursor: zoom-in; }
+    .example-expanded { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 400; margin-top: 0; border-radius: 20px; background: #ffffff; padding: 40px; cursor: zoom-out; font-size: 2rem; }
 
-    .now-playing-border { outline: 4px solid #007bff !important; outline-offset: 4px; box-shadow: 0 10px 30px rgba(0,123,255,0.3) !important; }
-    .highlight-card { outline: 4px solid #ffc107 !important; outline-offset: 4px; box-shadow: 0 0 30px #ffc107 !important; transform: scale(1.03); }
+    .now-playing-border { outline: 5px solid #007bff !important; outline-offset: 5px; box-shadow: 0 10px 40px rgba(0,123,255,0.4) !important; }
+    .highlight-card { outline: 5px solid #ffc107 !important; outline-offset: 5px; box-shadow: 0 0 40px #ffc107 !important; transform: scale(1.02); }
 
-    .word-title { font-size: 2.8rem; font-weight: 700; color: #1a202c; line-height: 1.2; display: flex; align-items: center; gap: 12px; padding-right: 40px; }
-    .ipa-text { color: #e67e22; font-size: 1.8rem; font-family: 'Courier New', monospace; margin-top: 5px; }
+    .word-title { font-size: 3rem; font-weight: 700; color: #1a202c; line-height: 1.2; display: flex; align-items: center; gap: 15px; padding-right: 50px; }
+    .ipa-text { color: #e67e22; font-size: 2rem; font-family: 'Courier New', monospace; margin-top: 8px; }
     
-    #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 12px; display: none; z-index: 2500; box-shadow: 0 -5px 20px rgba(0,0,0,0.1); }
+    #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 15px; display: none; z-index: 4000; box-shadow: 0 -5px 25px rgba(0,0,0,0.1); }
   </style>
 </head>
 <body>
@@ -69,9 +86,10 @@
   <div id="slideshow-overlay" onclick="closeOnOverlay(event)">
     <button class="close-overlay-btn" onclick="stopSequence()"><i class="bi bi-x-lg"></i></button>
     
-    <button class="nav-btn-overlay" style="left: 5px;" onclick="event.stopPropagation(); manualPrev()"><i class="bi bi-chevron-left"></i></button>
-    <div id="slide-content" onclick="event.stopPropagation(); toggleFlip(this)"></div>
-    <button class="nav-btn-overlay" style="right: 5px;" onclick="event.stopPropagation(); manualNext()"><i class="bi bi-chevron-right"></i></button>
+    <button class="nav-btn-overlay" style="left: 20px;" onclick="event.stopPropagation(); manualPrev()"><i class="bi bi-chevron-left"></i></button>
+    <div id="slide-content" onclick="event.stopPropagation()">
+        </div>
+    <button class="nav-btn-overlay" style="right: 20px;" onclick="event.stopPropagation(); manualNext()"><i class="bi bi-chevron-right"></i></button>
   </div>
 
   <div class="compact-panel">
@@ -98,10 +116,10 @@
 
   <div id="player-container">
     <div class="container d-flex align-items-center gap-3">
-      <div id="current-word" class="text-primary fw-bold" style="min-width: 80px; font-size: 1.4rem;"></div>
-      <audio id="global-audio" class="flex-grow-1" style="height: 40px;"></audio>
-      <button id="main-play-pause-btn" class="btn btn-primary rounded-circle" style="width:50px; height:50px;" onclick="togglePlayPause()">
-        <i class="bi bi-pause-fill fs-4"></i>
+      <div id="current-word" class="text-primary fw-bold" style="min-width: 100px; font-size: 1.5rem;"></div>
+      <audio id="global-audio" class="flex-grow-1" style="height: 45px;"></audio>
+      <button id="main-play-pause-btn" class="btn btn-primary rounded-circle" style="width:55px; height:55px;" onclick="togglePlayPause()">
+        <i class="bi bi-pause-fill fs-3"></i>
       </button>
       <button class="btn btn-danger rounded-pill px-4" onclick="stopSequence()">停止</button>
     </div>
@@ -135,7 +153,7 @@
     }
 
     function updatePlayPauseUI(playing) {
-      document.getElementById('main-play-pause-btn').innerHTML = playing ? '<i class="bi bi-pause-fill fs-4"></i>' : '<i class="bi bi-play-fill fs-4"></i>';
+      document.getElementById('main-play-pause-btn').innerHTML = playing ? '<i class="bi bi-pause-fill fs-3"></i>' : '<i class="bi bi-play-fill fs-3"></i>';
     }
 
     async function loadData() {
@@ -171,18 +189,19 @@
     function render() {
       const app = document.getElementById('app');
       const start = (currentPage - 1) * itemsPerPage;
-      app.innerHTML = filteredData.slice(start, start + itemsPerPage).map(item => createCardHTML(item)).join('');
+      app.innerHTML = filteredData.slice(start, start + itemsPerPage).map(item => createCardHTML(item, false)).join('');
       if (window.CNS11643) setTimeout(() => CNS11643.fixed(), 150);
       localStorage.setItem(`last_page_${currentSheet}`, currentPage);
     }
 
+    // 優化：傳入 isOverlay 參數來決定是否包含 Bootstrap 的 .col
     function createCardHTML(item, isOverlay = false) {
       const isStarred = starredList.includes(String(item.id));
       const hasExample = item.example && item.example !== "null" && item.example !== "";
       const hasDict = item.dictUrl && item.dictUrl !== "null" && item.dictUrl !== "";
-      return `
-        <div class="col" id="card-pos-${item.id}">
-          <div class="word-card ${isOverlay ? 'playing-mode' : ''}" onclick="${isOverlay ? '' : 'handleCardClick(event, this)'}">
+      
+      const cardInner = `
+          <div class="word-card" onclick="handleCardClick(event, this)">
             <div class="card-top-controls">
               <span class="item-id-badge">#${item.id}</span>
               <i class="bi bi-star${isStarred?'-fill':''} star-btn" onclick="event.stopPropagation(); toggleStar('${item.id}', this)"></i>
@@ -192,14 +211,16 @@
                 <button class="btn btn-primary rounded-circle me-4" style="width:50px; height:50px;" onclick="event.stopPropagation(); startPlayback('${item.id}', 'single')">
                    <i class="bi bi-play-fill fs-4"></i>
                 </button>
-                <div class="word-title">${item.word}${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" onclick="event.stopPropagation();"><i class="bi bi-link-45deg"></i></a>` : ''}</div>
+                <div class="word-title">${item.word}${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" style="font-size:1.5rem; opacity:0.5; color:#0d6efd;" onclick="event.stopPropagation();"><i class="bi bi-link-45deg"></i></a>` : ''}</div>
               </div>
               <div class="ipa-text">${item.ipa || ''}</div>
               ${hasExample ? `<div class="example-box" onclick="handleExampleToggle(event, this)"><span class="badge bg-secondary mb-2 fs-6">例：</span><br>${item.example}</div>` : ''}
             </div>
-            <div class="card-back"><div class="p-3"><h4 class="text-success border-bottom pb-2">【解釋】</h4><p style="font-size: 1.5rem;">${item.meaning || '尚未提供'}</p></div></div>
-          </div>
-        </div>`;
+            <div class="card-back"><div class="p-3"><h4 class="text-success border-bottom pb-2">【解釋】</h4><p style="font-size: 1.6rem;">${item.meaning || '尚未提供'}</p></div></div>
+          </div>`;
+
+      // 如果是在投影片模式，外層不加 .col
+      return isOverlay ? `<div class="overlay-card-wrapper" id="card-pos-${item.id}">${cardInner}</div>` : `<div class="col" id="card-pos-${item.id}">${cardInner}</div>`;
     }
 
     function handleCardClick(e, el) {
@@ -219,10 +240,7 @@
     }
 
     function startPlayback(id, mode) { 
-      if (!isPlaying && mode === 'single') {
-        playOnlyOne(id);
-        return;
-      }
+      if (!isPlaying && mode === 'single') { playOnlyOne(id); return; }
       isPlaying = true; 
       if (mode !== 'single') currentMode = mode;
 
@@ -275,8 +293,6 @@
       if (nextPage >= 1 && nextPage <= total) jumpToPage(nextPage);
     }
 
-    function toggleFlip(el) { el.querySelector('.word-card').classList.toggle('is-flipped'); }
-    
     function showSlide() { 
       if (!isPlaying || playlistIdx === -1) return; 
       const item = filteredData[playlistIdx]; 
@@ -284,6 +300,7 @@
       syncPageByTrack();
       
       if (uiMode === 'slideshow') {
+        // 使用修正後的 wrapper 插入，確保真正置中
         document.getElementById('slide-content').innerHTML = createCardHTML(item, true); 
       } else {
         document.querySelectorAll('.word-card').forEach(c => c.classList.remove('now-playing-border', 'playing-height'));
