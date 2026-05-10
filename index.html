@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證系統 - 點擊續播版</title>
+  <title>台語認證系統 - 單播/連播優化版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
@@ -66,8 +66,8 @@
         <button class="btn btn-outline-primary" onclick="changePage(1)">▶</button>
     </div>
     <div class="d-flex gap-1">
-      <button id="btn-play-page" class="btn btn-success px-3 rounded-pill" onclick="setModeAndPlay('page')">播本頁</button>
-      <button id="btn-play-all" class="btn btn-warning px-3 rounded-pill text-white" onclick="setModeAndPlay('all')">播全部</button>
+      <button class="btn btn-success px-3 rounded-pill" onclick="setModeAndPlay('page')">播本頁</button>
+      <button class="btn btn-warning px-3 rounded-pill text-white" onclick="setModeAndPlay('all')">播全部</button>
     </div>
   </div>
 
@@ -87,7 +87,7 @@
   <script>
     const API_URL = "https://script.google.com/a/macros/guo.kh.edu.tw/s/AKfycbw_OHgjTJqP6OvnIYZl2L9XkkH_DacnLfcQHipsGX0EQg4OsU7dxo6LuH9862I-nSo_1g/exec";
     let allData = [], filteredData = [], currentPage = 1, itemsPerPage = 10, currentSheet = "";
-    let currentMode = localStorage.getItem('pref_play_mode') || "page"; 
+    let currentMode = "page"; 
     let playlistIdx = 0, isPlaying = false;
     let starredList = JSON.parse(localStorage.getItem('starred_words') || "[]");
 
@@ -165,7 +165,7 @@
             </div>
             <div class="card-front">
               <div class="d-flex align-items-center mb-1">
-                <button class="btn btn-primary rounded-circle me-4" style="width:50px; height:50px;" onclick="event.stopPropagation(); startPlayback('${item.id}')">
+                <button class="btn btn-primary rounded-circle me-4" style="width:50px; height:50px;" onclick="event.stopPropagation(); startPlayback('${item.id}', 'single')">
                    <i class="bi bi-play-fill fs-4"></i>
                 </button>
                 <div class="word-title">${item.word}${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" onclick="event.stopPropagation();"><i class="bi bi-link-45deg"></i></a>` : ''}</div>
@@ -190,9 +190,8 @@
 
     function setModeAndPlay(mode) {
       currentMode = mode;
-      localStorage.setItem('pref_play_mode', mode);
       const firstIdOnPage = filteredData[(currentPage - 1) * itemsPerPage].id;
-      startPlayback(firstIdOnPage);
+      startPlayback(firstIdOnPage, mode);
     }
 
     function jumpToPage(val, autoScroll = true) {
@@ -219,9 +218,6 @@
         el.classList.replace('bi-star', 'bi-star-fill');
       }
       localStorage.setItem('starred_words', JSON.stringify(starredList));
-      if (document.getElementById('categorySelect').value === "my_stars") { 
-        setTimeout(() => { applyFilter("my_stars"); updatePageJumpSelect(); render(); }, 300);
-      }
     }
 
     function changePage(s) {
@@ -232,8 +228,9 @@
 
     function toggleFlip(el) { el.querySelector('.word-card').classList.toggle('is-flipped'); }
     
-    function startPlayback(id) { 
+    function startPlayback(id, mode) { 
       isPlaying = true; 
+      currentMode = mode; // 儲存本次播放的模式 (single, page, or all)
       const uiMode = document.getElementById('playModeSelect').value;
       if (uiMode === 'slideshow') document.getElementById('slideshow-overlay').style.display = 'flex'; 
       document.getElementById('player-container').style.display = 'block'; 
@@ -278,11 +275,16 @@
 
     function handleSequenceEnd() { 
       if (!isPlaying) return; 
+      // 邏輯核心：如果是單張模式 (single)，播完直接停止
+      if (currentMode === 'single') { stopSequence(); return; }
+
       const isPageEnd = (currentMode === "page" && playlistIdx >= (currentPage * itemsPerPage) - 1);
       const isAllEnd = (playlistIdx >= filteredData.length - 1);
+      
       if (isPageEnd || isAllEnd) { stopSequence(); return; } 
       manualNext(); 
     }
+
     function manualNext() { if (playlistIdx < filteredData.length - 1) { playlistIdx++; showSlide(); } else stopSequence(); }
     function manualPrev() { if (playlistIdx > 0) { playlistIdx--; showSlide(); } }
     function syncPageByTrack() { 
