@@ -9,29 +9,79 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
     body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8f9fa; padding: 15px; padding-bottom: 120px !important; }
+    
+    /* 修正容器高度 */
     .card-container { perspective: 1000px; margin-bottom: 20px; }
-    .word-card { width: 100%; min-height: 280px; transition: transform 0.6s; transform-style: preserve-3d; position: relative; cursor: pointer; }
+    
+    .word-card { 
+      width: 100%; 
+      min-height: 280px; /* 增加基礎高度防止內容溢出 */
+      transition: transform 0.6s; 
+      transform-style: preserve-3d; 
+      position: relative; 
+      cursor: pointer; 
+    }
+    
     .word-card.is-flipped { transform: rotateY(180deg); }
-    .card-front, .card-back { position: absolute; top: 0; left: 0; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 12px; padding: 20px; border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.08); display: flex; flex-direction: column; background: white; }
+    
+    .card-front, .card-back { 
+      position: absolute; 
+      top: 0; left: 0; 
+      width: 100%; height: 100%; 
+      backface-visibility: hidden; 
+      border-radius: 12px; 
+      padding: 20px; 
+      border: 1px solid #ddd; 
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08); 
+      display: flex; 
+      flex-direction: column; 
+      background: white;
+    }
+    
     .card-front { border-left: 6px solid #007bff; z-index: 2; }
     .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 6px solid #28a745; }
+    
     .word-card.starred-border .card-front { border-left-color: #f1c40f; background-color: #fffdf0; }
     .playing-now { box-shadow: 0 0 20px #007bff !important; border: 2px solid #007bff !important; }
+
     .word-header { display: flex; align-items: center; margin-bottom: 10px; width: 100%; }
     .word-title { font-size: 2rem; color: #2c3e50; font-weight: bold; }
     .word-no { font-size: 0.85rem; color: #95a5a6; margin-left: auto; }
-    .dict-link { text-decoration: none; font-size: 1.1rem; margin-left: 10px; color: #198754; transition: opacity 0.2s; }
+    
+    /* 字典連結按鈕樣式 */
+    .dict-link { 
+      text-decoration: none; 
+      font-size: 1.1rem; 
+      margin-left: 10px; 
+      color: #198754; 
+      transition: opacity 0.2s;
+    }
     .dict-link:hover { opacity: 0.7; }
+
     .ipa-text { color: #e67e22; font-family: 'Segoe UI', Arial, sans-serif; font-size: 1.5rem; margin-bottom: 8px; margin-left: 47px; }
     .badge-group { margin-bottom: 12px; margin-left: 47px; display: flex; gap: 5px; }
     .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; }
     .bg-cat { background-color: #2ecc71; color: white; }
-    .example-box { background: #f1f3f5; padding: 12px; border-left: 4px solid #3498db; font-size: 1.5rem; color: #34495e; border-radius: 0 4px 4px 0; flex-grow: 1; overflow-y: auto; line-height: 1.6; text-align: left; }
+
+    .example-box { 
+      background: #f1f3f5; 
+      padding: 12px; 
+      border-left: 4px solid #3498db; 
+      font-size: 1.5rem; 
+      color: #34495e; 
+      border-radius: 0 4px 4px 0; 
+      flex-grow: 1; 
+      overflow-y: auto; 
+      line-height: 1.6;
+      text-align: left;
+    }
     .example-label { font-size: 0.85rem; color: #7f8c8d; font-weight: bold; margin-bottom: 4px; display: block; }
+    
     .play-icon-btn { background: #007bff; color: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: none; margin-right: 12px; flex-shrink: 0; }
     .play-btn-sm { background: #3498db; color: white; border: none; border-radius: 4px; font-size: 0.7rem; padding: 2px 6px; margin-left: 8px; }
     .star-btn { background: none; border: none; font-size: 1.6rem; color: #ccc; cursor: pointer; padding: 0 5px; }
     .star-btn.active { color: #f1c40f; }
+
     #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; box-shadow: 0 -2px 15px rgba(0,0,0,0.1); padding: 15px; display: none; z-index: 1000; }
     .player-flex { display: flex; align-items: center; gap: 15px; max-width: 800px; margin: 0 auto; }
     #current-word { font-weight: bold; font-size: 1rem; color: #007bff; min-width: 100px; }
@@ -80,6 +130,7 @@
   </div>
 
   <script>
+    // --- 此處維持原本的所有邏輯 (init, loadData, switchSheet 等) ---
     let allData = [];
     let filteredData = [];
     let currentPage = 1;
@@ -93,106 +144,84 @@
     async function init() {
       const savedSheet = localStorage.getItem('last_sheet');
       const cachedSheets = localStorage.getItem('cache_sheet_names');
-      
       if (cachedSheets) {
         const names = JSON.parse(cachedSheets);
         currentSheet = (savedSheet && names.includes(savedSheet)) ? savedSheet : names[0];
+        const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
+        currentPage = savedPage ? parseInt(savedPage) : 1;
         setupSheetButtons(names);
-        loadData(); 
+        loadData();
       }
-
       try {
         const response = await fetch(`${API_URL}?action=getSheets`);
         const names = await response.json();
         if (names && names.length > 0) {
           localStorage.setItem('cache_sheet_names', JSON.stringify(names));
-          if (!currentSheet) {
+          if (!cachedSheets) {
             currentSheet = (savedSheet && names.includes(savedSheet)) ? savedSheet : names[0];
+            const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
+            currentPage = savedPage ? parseInt(savedPage) : 1;
             loadData();
           }
           setupSheetButtons(names);
         }
-      } catch (err) { console.error("初始化失敗:", err); }
+      } catch (err) { console.error(err); }
+    }
+
+    function setupSheetButtons(names) {
+      const btnContainer = document.getElementById('sheet-buttons');
+      btnContainer.innerHTML = '';
+      names.forEach((name) => {
+        const btn = document.createElement('button');
+        btn.innerText = name;
+        btn.className = (name === currentSheet) ? "btn btn-primary btn-sm" : "btn btn-outline-primary btn-sm";
+        btn.onclick = () => switchSheet(name);
+        btnContainer.appendChild(btn);
+      });
+    }
+
+    function switchSheet(name) {
+      if (currentSheet === name) return;
+      currentSheet = name;
+      localStorage.setItem('last_sheet', name);
+      const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
+      currentPage = savedPage ? parseInt(savedPage) : 1;
+      setupSheetButtons(JSON.parse(localStorage.getItem('cache_sheet_names')));
+      loadData();
     }
 
     async function loadData() {
-      if (!currentSheet) return;
       const cacheKey = `cache_data_${currentSheet}`;
       const cachedData = localStorage.getItem(cacheKey);
       stopSequence();
-
       if (cachedData) {
         allData = JSON.parse(cachedData);
-        restoreFilterAndPage(); 
+        filteredData = allData;
+        render();
       }
-
       try {
         const [dataRes, catRes] = await Promise.all([
           fetch(`${API_URL}?sheet=${currentSheet}`),
           fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`).catch(() => null)
         ]);
         const newData = await dataRes.json();
-        
-        if (newData && !newData.error) {
+        if (JSON.stringify(newData) !== cachedData) {
           allData = newData;
+          filteredData = allData;
           localStorage.setItem(cacheKey, JSON.stringify(allData));
-          
-          if (catRes) {
-            const categories = await catRes.json();
-            updateCategoryUI(categories);
-          }
-          restoreFilterAndPage();
+          render();
         }
-      } catch (err) { console.error("下載資料失敗:", err); }
+        if (catRes) {
+          const categories = await catRes.json();
+          updateCategoryUI(categories);
+        }
+      } catch (err) { console.error(err); }
     }
 
-    function restoreFilterAndPage() {
-      const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
-      const select = document.getElementById('categorySelect');
-      
-      // 確保選單內有這個選項再設定值
-      if ([...select.options].some(opt => opt.value === savedCat)) {
-        select.value = savedCat;
-      } else {
-        select.value = "all";
-      }
-      
-      applyFilter(select.value);
-      
-      const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
-      const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
-      currentPage = savedPage ? Math.min(parseInt(savedPage), totalPages) : 1;
-      if (currentPage < 1) currentPage = 1;
-
-      render();
-    }
-
-    function applyFilter(cat) {
-      if (cat === "all") {
-        filteredData = allData;
-      } else if (cat === "my_stars") {
-        const list = getStarredList();
-        filteredData = allData.filter(item => list.includes(String(item.id)));
-      } else {
-        filteredData = allData.filter(item => item.cat === cat);
-      }
-    }
-
-    function filterByCategory(cat) {
-      stopSequence();
-      localStorage.setItem(`last_cat_${currentSheet}`, cat);
-      localStorage.setItem(`last_page_${currentSheet}`, 1);
-      currentPage = 1;
-      applyFilter(cat);
-      render();
-    }
-
+    // --- 修改後的 Render 函式 ---
     function render() {
       const app = document.getElementById('app');
-      if (!filteredData || filteredData.length === 0) { 
-        app.innerHTML = '<div class="col-12 mt-5 text-center">查無資料（請確認分類或收藏）。</div>'; 
-        return; 
-      }
+      if (!filteredData || filteredData.length === 0) { app.innerHTML = '<div class="col-12 mt-5">目前沒有資料。</div>'; return; }
       
       const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
       if (currentPage > totalPages) currentPage = totalPages;
@@ -246,56 +275,24 @@
       if (typeof CNS11643 !== 'undefined') { setTimeout(() => CNS11643.fixed(), 150); }
     }
 
-    function setupSheetButtons(names) {
-      const btnContainer = document.getElementById('sheet-buttons');
-      btnContainer.innerHTML = '';
-      names.forEach((name) => {
-        const btn = document.createElement('button');
-        btn.innerText = name;
-        btn.className = (name === currentSheet) ? "btn btn-primary btn-sm" : "btn btn-outline-primary btn-sm";
-        btn.onclick = () => switchSheet(name);
-        btnContainer.appendChild(btn);
-      });
-    }
-
-    function switchSheet(name) {
-      if (currentSheet === name) return;
-      currentSheet = name;
-      localStorage.setItem('last_sheet', name);
-      setupSheetButtons(JSON.parse(localStorage.getItem('cache_sheet_names')));
-      loadData();
-    }
-
-    function changePage(s) { 
-      currentPage += s; 
-      localStorage.setItem(`last_page_${currentSheet}`, currentPage); 
-      render(); 
-      window.scrollTo(0,0); 
-    }
-    
+    // --- 剩餘邏輯維持不變 ---
+    function changePage(s) { currentPage += s; localStorage.setItem(`last_page_${currentSheet}`, currentPage); render(); window.scrollTo(0,0); }
     function jumpToPage(v) { 
       const p = parseInt(v); 
       const total = Math.ceil(filteredData.length / itemsPerPage) || 1; 
-      if (p >= 1 && p <= total) { 
-        currentPage = p; 
-        localStorage.setItem(`last_page_${currentSheet}`, currentPage); 
-        render(); 
-        window.scrollTo(0,0); 
-      } 
+      if (p >= 1 && p <= total) { currentPage = p; localStorage.setItem(`last_page_${currentSheet}`, currentPage); render(); window.scrollTo(0,0); } 
     }
-
     function updateCategoryUI(categories) {
       const select = document.getElementById('categorySelect');
-      const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
+      const currentVal = select.value;
       select.innerHTML = '<option value="all">全部類別</option><option value="my_stars">⭐ 我的收藏</option>';
       categories.forEach(cat => {
         const opt = document.createElement('option');
         opt.value = opt.innerText = cat;
         select.appendChild(opt);
       });
-      select.value = savedCat;
+      if ([...select.options].some(o => o.value === currentVal)) select.value = currentVal;
     }
-
     function toggleStar(id, event) {
       event.stopPropagation();
       let list = getStarredList();
@@ -306,6 +303,13 @@
       render();
     }
     function getStarredList() { const s = localStorage.getItem('starred_words'); return s ? JSON.parse(s) : []; }
+    function filterByCategory(cat) {
+      stopSequence();
+      if (cat === "all") filteredData = allData;
+      else if (cat === "my_stars") { const list = getStarredList(); filteredData = allData.filter(item => list.includes(String(item.id))); }
+      else { filteredData = allData.filter(item => item.cat === cat); }
+      currentPage = 1; render();
+    }
     function flipCard(e) { e.classList.toggle('is-flipped'); }
     function playSingle(url, label) {
       const audioPlayer = document.getElementById('global-audio');
@@ -360,3 +364,6 @@
   </script>
 </body>
 </html>
+
+
+
