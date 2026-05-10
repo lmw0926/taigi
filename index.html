@@ -4,100 +4,42 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證系統</title>
+  <title>台語認證系統 - 記憶強化版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
-    
-    body {
-      font-family: 'Noto Sans TC', sans-serif;
-      background-color: #f4f7f9; padding: 10px; padding-bottom: 120px; 
-    }
+    body { font-family: 'Noto Sans TC', sans-serif; background-color: #f4f7f9; padding: 10px; padding-bottom: 120px; }
 
     /* --- 控制面板 --- */
-    .compact-panel {
-      background: white; padding: 10px 15px; border-radius: 50px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 15px;
-      display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-    }
+    .compact-panel { background: white; padding: 10px 15px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
     .panel-item { flex: 1; min-width: 120px; }
     .nav-group { flex: 1.5; min-width: 220px; }
 
-    /* --- 播放遮罩 --- */
-    #slideshow-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.96); z-index: 2000;
-      display: none; align-items: center; justify-content: center; backdrop-filter: blur(12px);
-    }
-    #slide-content { 
-      width: 100%; height: 100%; 
-      display: flex; align-items: center; justify-content: center;
-    }
-
-    /* --- 卡片核心樣式 --- */
-    .word-card { 
-      width: 100%; min-height: 280px; transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
-      transform-style: preserve-3d; position: relative; 
-      background: white; border-radius: 16px; border: 1px solid #e0e6ed; cursor: pointer;
-    }
+    /* --- 播放遮罩與卡片 --- */
+    #slideshow-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.96); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(12px); }
+    #slide-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+    .word-card { width: 100%; min-height: 280px; transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); transform-style: preserve-3d; position: relative; background: white; border-radius: 16px; border: 1px solid #e0e6ed; cursor: pointer; }
     .word-card.is-flipped { transform: rotateY(180deg); }
+    .word-card.playing-mode { width: 85vw !important; height: 75vh !important; max-width: 700px; max-height: 850px; margin: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.7); z-index: 2001; }
 
-    /* --- 播放模式：保持 80% 大小 --- */
-    .word-card.playing-mode { 
-      width: 85vw !important; 
-      height: 70vh !important;
-      max-width: 700px;
-      max-height: 850px;
-      margin: auto;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.7); 
-      z-index: 2001;
-    }
-
-    .card-front, .card-back { 
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-      backface-visibility: hidden; border-radius: 16px; padding: 30px; 
-      display: flex; flex-direction: column; overflow: hidden;
-    }
+    .card-front, .card-back { position: absolute; top: 0; left: 0; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 16px; padding: 30px; display: flex; flex-direction: column; overflow: hidden; }
     .card-front { border-left: 10px solid #007bff; }
     .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 10px solid #28a745; overflow-y: auto; }
     
-    /* 右側控制組 */
-    .card-controls-right {
-      position: absolute; top: 15px; right: 20px;
-      display: flex; align-items: center; gap: 12px; z-index: 10;
-    }
+    .card-controls-right { position: absolute; top: 15px; right: 20px; display: flex; align-items: center; gap: 12px; z-index: 10; }
     .item-id-badge { color: #adb5bd; font-size: 1rem; font-weight: bold; }
     .star-btn { font-size: 1.6rem; color: #ffc107; cursor: pointer; }
 
-    /* --- 重點：字體大小強化 --- */
-    .word-title { 
-      font-size: 2rem; /* 一般模式語詞 */
-      font-weight: 700; color: #1a202c; 
-      line-height: 1.2;
-    }
-    .ipa-text { 
-      font-weight: 700; color: #e67e22; font-size: 1.8rem; /* 一般模式音標 */
-      font-family: 'Courier New', Courier, monospace;
-      margin-top: 5px;
-    }
+    /* 字體大小 */
+    .word-title { font-size: 2.8rem; font-weight: 700; color: #1a202c; line-height: 1.2; }
+    .ipa-text { color: #e67e22; font-size: 1.8rem; font-family: 'Courier New', monospace; margin-top: 5px; }
+    .playing-mode .word-title { font-size: 4rem; }
+    .playing-mode .ipa-text { font-size: 2.5rem; }
 
-    /* 播放模式字體再次加大 */
-    .playing-mode .word-title { font-size: 3rem; }
-    .playing-mode .ipa-text { font-size: 2rem; }
+    .example-box { background: #f8f9fa; padding: 15px; border-left: 5px solid #3498db; font-size: 1.5rem; color: #2c3e50; border-radius: 0 8px 8px 0; margin-top: 20px; height: 120px; overflow-y: auto; }
+    .playing-mode .example-box { flex: 1; height: auto; background: #ffffff; font-size: 2rem; }
 
-    /* --- 例句區 --- */
-    .example-box { 
-      background: #f8f9fa; padding: 15px; border-left: 5px solid #3498db; 
-      font-size: 1.5rem; color: #2c3e50; border-radius: 0 8px 8px 0; 
-      margin-top: 20px; height: 120px; overflow-y: auto;
-    }
-    .playing-mode .example-box {
-      flex: 1; height: auto; 
-      background: #ffffff; font-size: 2rem; /* 播放時例句也加大 */
-    }
-
-    /* 播放控制列 */
     #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 12px; display: none; z-index: 2200; box-shadow: 0 -5px 20px rgba(0,0,0,0.1); }
     .nav-btn-overlay { position: absolute; top: 50%; transform: translateY(-50%); background: none; color: white; border: none; font-size: 4rem; opacity: 0.3; transition: 0.3s; z-index: 2300; }
     .nav-btn-overlay:hover { opacity: 1; }
@@ -113,7 +55,7 @@
 
   <div class="compact-panel">
     <div class="panel-item"><select id="sheetSelect" class="form-select" onchange="switchSheet(this.value)"></select></div>
-    <div class="panel-item"><select id="categorySelect" class="form-select" onchange="filterByCategory(this.value)"></select></div>
+    <div class="panel-item"><select id="categorySelect" class="form-select" onchange="handleCategoryChange(this.value)"></select></div>
     <div class="nav-group">
       <div class="input-group">
         <button class="btn btn-outline-primary" onclick="changePage(-1)">◀</button>
@@ -141,17 +83,15 @@
     const API_URL = "https://script.google.com/a/macros/guo.kh.edu.tw/s/AKfycbw_OHgjTJqP6OvnIYZl2L9XkkH_DacnLfcQHipsGX0EQg4OsU7dxo6LuH9862I-nSo_1g/exec";
     
     let allData = [], filteredData = [], currentPage = 1, itemsPerPage = 10, currentSheet = "";
-    let currentMode = "none", playlist = [], playlistIdx = 0, isPlaying = false;
+    let currentMode = "none", playlistIdx = 0, isPlaying = false;
     let starredList = JSON.parse(localStorage.getItem('starred_words') || "[]");
 
     async function init() {
-      try {
-        const response = await fetch(`${API_URL}?action=getSheets`);
-        const names = await response.json();
-        currentSheet = localStorage.getItem('last_sheet') || names[0];
-        document.getElementById('sheetSelect').innerHTML = names.map(n => `<option value="${n}" ${n===currentSheet?'selected':''}>📚 ${n}</option>`).join('');
-        await loadData();
-      } catch (e) { console.error("初始化失敗", e); }
+      const response = await fetch(`${API_URL}?action=getSheets`);
+      const names = await response.json();
+      currentSheet = localStorage.getItem('last_sheet') || names[0];
+      document.getElementById('sheetSelect').innerHTML = names.map(n => `<option value="${n}" ${n===currentSheet?'selected':''}>📚 ${n}</option>`).join('');
+      await loadData();
     }
 
     async function loadData() {
@@ -160,11 +100,20 @@
         fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`).catch(() => null)
       ]);
       allData = await dataRes.json();
+      
       if(catRes) {
         const cats = await catRes.json();
         document.getElementById('categorySelect').innerHTML = '<option value="all">📂 全部類別</option><option value="my_stars">⭐ 我的收藏</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
       }
-      applyFilter(localStorage.getItem(`last_cat_${currentSheet}`) || "all");
+
+      // 記憶類別與分頁
+      const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
+      applyFilter(savedCat);
+      
+      const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
+      const savedPage = parseInt(localStorage.getItem(`last_page_${currentSheet}`)) || 1;
+      currentPage = Math.min(savedPage, totalPages);
+      
       updatePageJumpSelect();
       render();
     }
@@ -187,6 +136,14 @@
       } else if (cat !== "all") {
         filteredData = allData.filter(item => item.cat === cat);
       } else { filteredData = allData; }
+    }
+
+    function handleCategoryChange(val) {
+      localStorage.setItem(`last_cat_${currentSheet}`, val);
+      applyFilter(val);
+      currentPage = 1;
+      updatePageJumpSelect();
+      render();
     }
 
     function render() {
@@ -217,18 +174,12 @@
               <div class="ipa-text">${item.ipa || ''}</div>
               ${hasExample ? `<div class="example-box"><span class="badge bg-secondary mb-2 fs-6">例：</span><br>${item.example}</div>` : ''}
             </div>
-            <div class="card-back">
-              <div class="p-3">
-                <h4 class="text-success border-bottom pb-2">【解釋】</h4>
-                <p style="font-size: 1.5rem;">${item.meaning || '尚未提供'}</p>
-              </div>
-            </div>
+            <div class="card-back"><div class="p-3"><h4 class="text-success border-bottom pb-2">【解釋】</h4><p style="font-size: 1.5rem;">${item.meaning || '尚未提供'}</p></div></div>
           </div>
         </div>`;
     }
 
     function toggleFlip(el) { el.querySelector('.word-card').classList.toggle('is-flipped'); }
-
     function playSingleSlide(id) { currentMode = "single"; startPlayback(id); }
     function playCurrentPage() { currentMode = "page"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
     function playAllContinuous() { currentMode = "all"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
@@ -242,7 +193,7 @@
     }
 
     function showSlide() {
-      if (!isPlaying) return;
+      if (!isPlaying || playlistIdx === -1) return;
       const item = filteredData[playlistIdx];
       document.getElementById('slide-content').innerHTML = createCardHTML(item, true);
       const audio = document.getElementById('global-audio');
@@ -282,7 +233,6 @@
     }
 
     function switchSheet(val) { currentSheet = val; localStorage.setItem('last_sheet', val); loadData(); }
-    function filterByCategory(val) { localStorage.setItem(`last_cat_${currentSheet}`, val); applyFilter(val); currentPage = 1; updatePageJumpSelect(); render(); }
     function jumpToPage(val) { currentPage = parseInt(val); render(); window.scrollTo(0,0); }
     function changePage(s) {
       const total = Math.ceil(filteredData.length / itemsPerPage);
