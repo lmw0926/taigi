@@ -4,21 +4,20 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證系統 - 記憶強化版</title>
+  <title>台語認證系統 - 最終完美版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
     body { font-family: 'Noto Sans TC', sans-serif; background-color: #f4f7f9; padding: 10px; padding-bottom: 120px; }
 
-    /* --- 控制面板 --- */
     .compact-panel { background: white; padding: 10px 15px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
     .panel-item { flex: 1; min-width: 120px; }
     .nav-group { flex: 1.5; min-width: 220px; }
 
-    /* --- 播放遮罩與卡片 --- */
     #slideshow-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.96); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(12px); }
     #slide-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+    
     .word-card { width: 100%; min-height: 280px; transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); transform-style: preserve-3d; position: relative; background: white; border-radius: 16px; border: 1px solid #e0e6ed; cursor: pointer; }
     .word-card.is-flipped { transform: rotateY(180deg); }
     .word-card.playing-mode { width: 85vw !important; height: 75vh !important; max-width: 700px; max-height: 850px; margin: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.7); z-index: 2001; }
@@ -31,7 +30,6 @@
     .item-id-badge { color: #adb5bd; font-size: 1rem; font-weight: bold; }
     .star-btn { font-size: 1.6rem; color: #ffc107; cursor: pointer; }
 
-    /* 字體大小 */
     .word-title { font-size: 2.8rem; font-weight: 700; color: #1a202c; line-height: 1.2; }
     .ipa-text { color: #e67e22; font-size: 1.8rem; font-family: 'Courier New', monospace; margin-top: 5px; }
     .playing-mode .word-title { font-size: 4rem; }
@@ -58,9 +56,9 @@
     <div class="panel-item"><select id="categorySelect" class="form-select" onchange="handleCategoryChange(this.value)"></select></div>
     <div class="nav-group">
       <div class="input-group">
-        <button class="btn btn-outline-primary" onclick="changePage(-1)">◀</button>
+        <button class="btn btn-outline-primary" onclick="changePage(-1)">◀ 上一頁</button>
         <select id="pageJumpSelect" class="form-select text-center" onchange="jumpToPage(this.value)"></select>
-        <button class="btn btn-outline-primary" onclick="changePage(1)">▶</button>
+        <button class="btn btn-outline-primary" onclick="changePage(1)">下一頁 ▶</button>
       </div>
     </div>
     <div class="d-flex gap-1">
@@ -100,20 +98,13 @@
         fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`).catch(() => null)
       ]);
       allData = await dataRes.json();
-      
       if(catRes) {
         const cats = await catRes.json();
         document.getElementById('categorySelect').innerHTML = '<option value="all">📂 全部類別</option><option value="my_stars">⭐ 我的收藏</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
       }
-
-      // 記憶類別與分頁
-      const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
-      applyFilter(savedCat);
-      
+      applyFilter(localStorage.getItem(`last_cat_${currentSheet}`) || "all");
       const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
-      const savedPage = parseInt(localStorage.getItem(`last_page_${currentSheet}`)) || 1;
-      currentPage = Math.min(savedPage, totalPages);
-      
+      currentPage = Math.min(parseInt(localStorage.getItem(`last_page_${currentSheet}`)) || 1, totalPages);
       updatePageJumpSelect();
       render();
     }
@@ -122,20 +113,15 @@
       id = String(id);
       starredList = starredList.includes(id) ? starredList.filter(i => i !== id) : [...starredList, id];
       localStorage.setItem('starred_words', JSON.stringify(starredList));
-      if (document.getElementById('categorySelect').value === "my_stars") {
-        applyFilter("my_stars");
-        updatePageJumpSelect();
-      }
+      if (document.getElementById('categorySelect').value === "my_stars") { applyFilter("my_stars"); updatePageJumpSelect(); }
       render();
     }
 
     function applyFilter(cat) {
       document.getElementById('categorySelect').value = cat;
-      if (cat === "my_stars") {
-        filteredData = allData.filter(item => starredList.includes(String(item.id)));
-      } else if (cat !== "all") {
-        filteredData = allData.filter(item => item.cat === cat);
-      } else { filteredData = allData; }
+      if (cat === "my_stars") filteredData = allData.filter(item => starredList.includes(String(item.id)));
+      else if (cat !== "all") filteredData = allData.filter(item => item.cat === cat);
+      else filteredData = allData;
     }
 
     function handleCategoryChange(val) {
@@ -157,93 +143,43 @@
     function createCardHTML(item, isOverlay = false) {
       const isStarred = starredList.includes(String(item.id));
       const hasExample = item.example && item.example !== "null";
-      return `
-        <div class="col">
-          <div class="word-card ${isOverlay ? 'playing-mode' : ''}" onclick="${isOverlay ? '' : 'this.classList.toggle(\'is-flipped\')'}">
-            <div class="card-controls-right">
-              <span class="item-id-badge">#${item.id}</span>
-              <i class="bi bi-star${isStarred?'-fill':''} star-btn" onclick="event.stopPropagation(); toggleStar('${item.id}')"></i>
-            </div>
-            <div class="card-front">
-              <div class="d-flex align-items-center mb-1">
-                <button class="btn btn-primary rounded-circle me-4" style="width:50px; height:50px; flex-shrink:0;" onclick="event.stopPropagation(); playSingleSlide('${item.id}')">
-                   <i class="bi bi-play-fill fs-4"></i>
-                </button>
-                <span class="word-title">${item.word}</span>
-              </div>
-              <div class="ipa-text">${item.ipa || ''}</div>
-              ${hasExample ? `<div class="example-box"><span class="badge bg-secondary mb-2 fs-6">例：</span><br>${item.example}</div>` : ''}
-            </div>
-            <div class="card-back"><div class="p-3"><h4 class="text-success border-bottom pb-2">【解釋】</h4><p style="font-size: 1.5rem;">${item.meaning || '尚未提供'}</p></div></div>
-          </div>
-        </div>`;
+      return `<div class="col"><div class="word-card ${isOverlay ? 'playing-mode' : ''}" onclick="${isOverlay ? '' : 'this.classList.toggle(\'is-flipped\')'}"><div class="card-controls-right"><span class="item-id-badge">#${item.id}</span><i class="bi bi-star${isStarred?'-fill':''} star-btn" onclick="event.stopPropagation(); toggleStar('${item.id}')"></i></div><div class="card-front"><div class="d-flex align-items-center mb-1"><button class="btn btn-primary rounded-circle me-4" style="width:50px; height:50px; flex-shrink:0;" onclick="event.stopPropagation(); playSingleSlide('${item.id}')"><i class="bi bi-play-fill fs-4"></i></button><span class="word-title">${item.word}</span></div><div class="ipa-text">${item.ipa || ''}</div>${hasExample ? `<div class="example-box"><span class="badge bg-secondary mb-2 fs-6">例：</span><br>${item.example}</div>` : ''}</div><div class="card-back"><div class="p-3"><h4 class="text-success border-bottom pb-2">【解釋】</h4><p style="font-size: 1.5rem;">${item.meaning || '尚未提供'}</p></div></div></div></div>`;
     }
 
-    function toggleFlip(el) { el.querySelector('.word-card').classList.toggle('is-flipped'); }
-    function playSingleSlide(id) { currentMode = "single"; startPlayback(id); }
-    function playCurrentPage() { currentMode = "page"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
-    function playAllContinuous() { currentMode = "all"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
-
-    function startPlayback(id) {
-      isPlaying = true;
-      document.getElementById('slideshow-overlay').style.display = 'flex';
-      document.getElementById('player-container').style.display = 'block';
-      playlistIdx = filteredData.findIndex(i => String(i.id) === String(id));
-      showSlide();
-    }
-
-    function showSlide() {
-      if (!isPlaying || playlistIdx === -1) return;
-      const item = filteredData[playlistIdx];
-      document.getElementById('slide-content').innerHTML = createCardHTML(item, true);
-      const audio = document.getElementById('global-audio');
-      document.getElementById('current-word').innerText = item.word;
-      audio.src = item.wordAudio.replace("dl=0", "raw=1");
-      audio.play();
-      audio.onended = () => {
-        if (item.exampleAudio) {
-          setTimeout(() => { if(!isPlaying) return; audio.src = item.exampleAudio.replace("dl=0", "raw=1"); audio.play(); audio.onended = handleSequenceEnd; }, 800);
-        } else handleSequenceEnd();
-      };
-    }
-
-    function handleSequenceEnd() {
-      if (!isPlaying) return;
-      if (currentMode === "single") { stopSequence(); return; }
-      if (currentMode === "page" && playlistIdx >= (currentPage * itemsPerPage) - 1) { stopSequence(); return; }
-      manualNext();
-    }
-
-    function manualNext() {
-      if (playlistIdx < filteredData.length - 1) { playlistIdx++; syncPageByTrack(); showSlide(); } else stopSequence();
-    }
-
-    function manualPrev() { if (playlistIdx > 0) { playlistIdx--; syncPageByTrack(); showSlide(); } }
-
-    function syncPageByTrack() {
-      const targetPage = Math.floor(playlistIdx / itemsPerPage) + 1;
-      if (targetPage !== currentPage) { currentPage = targetPage; updatePageJumpSelect(); render(); }
-    }
-
-    function stopSequence() {
-      isPlaying = false;
-      document.getElementById('slideshow-overlay').style.display = 'none';
-      document.getElementById('player-container').style.display = 'none';
-      document.getElementById('global-audio').pause();
-    }
-
-    function switchSheet(val) { currentSheet = val; localStorage.setItem('last_sheet', val); loadData(); }
-    function jumpToPage(val) { currentPage = parseInt(val); render(); window.scrollTo(0,0); }
     function changePage(s) {
       const total = Math.ceil(filteredData.length / itemsPerPage);
-      if (currentPage + s >= 1 && currentPage + s <= total) jumpToPage(currentPage + s);
+      const nextPage = currentPage + s;
+      if (nextPage >= 1 && nextPage <= total) {
+        jumpToPage(nextPage);
+      }
     }
+
+    function jumpToPage(val) {
+      currentPage = parseInt(val);
+      document.getElementById('pageJumpSelect').value = currentPage; // 同步選單
+      render();
+      window.scrollTo(0,0);
+    }
+
     function updatePageJumpSelect() {
       const total = Math.ceil(filteredData.length / itemsPerPage) || 1;
       let options = "";
       for(let i=1; i<=total; i++) options += `<option value="${i}" ${i===currentPage?'selected':''}>第 ${i} 頁</option>`;
       document.getElementById('pageJumpSelect').innerHTML = options;
     }
+
+    function toggleFlip(el) { el.querySelector('.word-card').classList.toggle('is-flipped'); }
+    function playSingleSlide(id) { currentMode = "single"; startPlayback(id); }
+    function playCurrentPage() { currentMode = "page"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
+    function playAllContinuous() { currentMode = "all"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
+    function startPlayback(id) { isPlaying = true; document.getElementById('slideshow-overlay').style.display = 'flex'; document.getElementById('player-container').style.display = 'block'; playlistIdx = filteredData.findIndex(i => String(i.id) === String(id)); showSlide(); }
+    function showSlide() { if (!isPlaying || playlistIdx === -1) return; const item = filteredData[playlistIdx]; document.getElementById('slide-content').innerHTML = createCardHTML(item, true); const audio = document.getElementById('global-audio'); document.getElementById('current-word').innerText = item.word; audio.src = item.wordAudio.replace("dl=0", "raw=1"); audio.play(); audio.onended = () => { if (item.exampleAudio) { setTimeout(() => { if(!isPlaying) return; audio.src = item.exampleAudio.replace("dl=0", "raw=1"); audio.play(); audio.onended = handleSequenceEnd; }, 800); } else handleSequenceEnd(); }; }
+    function handleSequenceEnd() { if (!isPlaying) return; if (currentMode === "single") { stopSequence(); return; } if (currentMode === "page" && playlistIdx >= (currentPage * itemsPerPage) - 1) { stopSequence(); return; } manualNext(); }
+    function manualNext() { if (playlistIdx < filteredData.length - 1) { playlistIdx++; syncPageByTrack(); showSlide(); } else stopSequence(); }
+    function manualPrev() { if (playlistIdx > 0) { playlistIdx--; syncPageByTrack(); showSlide(); } }
+    function syncPageByTrack() { const targetPage = Math.floor(playlistIdx / itemsPerPage) + 1; if (targetPage !== currentPage) { jumpToPage(targetPage); } }
+    function stopSequence() { isPlaying = false; document.getElementById('slideshow-overlay').style.display = 'none'; document.getElementById('player-container').style.display = 'none'; document.getElementById('global-audio').pause(); }
+    function switchSheet(val) { currentSheet = val; localStorage.setItem('last_sheet', val); loadData(); }
 
     window.onload = init;
   </script>
