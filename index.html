@@ -239,6 +239,11 @@
       document.getElementById('prevBtn').disabled = (currentPage <= 1);
       document.getElementById('nextBtn').disabled = (currentPage >= totalPages);
       if (window.CNS11643) setTimeout(() => CNS11643.fixed(), 100);
+      // 在你的 render 函式最後
+      if (typeof CNS11643 !== 'undefined') { 
+          // 手機版建議延遲時間拉長到 500ms，確保 DOM 已經完全長出來
+          setTimeout(() => { CNS11643.fixed(); }, 500); 
+      }
     }
 
     // 分頁與標籤功能
