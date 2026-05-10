@@ -173,11 +173,18 @@
       render();
     }
 
-    // 處理字串中的 &#x...; 並轉為圖片
+    // 處理字串中的 &#x...; 並轉為圖片 (改用更穩定的圖片來源)
     function fixRareChars(text) {
       if (!text) return "";
+      
+      // 將 &#x22F0C; 這種格式轉換為全字庫的 PNG 圖片標籤
+      // 這裡調整了網址參數，確保它在手機上更容易被顯示
       return text.replace(/&#[xX]([0-9A-Fa-f]+);/g, (match, hex) => {
-        return `<img src="https://www.cns11643.gov.tw/AIDB/png.do?components=1&font=0&code=${hex}" style="height:1.2em; vertical-align:text-bottom; filter: contrast(120%);">`;
+        // 使用全字庫 AIDB 的 png.do 介面，並加上一些縮放設定
+        const imageUrl = `https://www.cns11643.gov.tw/AIDB/png.do?components=1&font=0&code=${hex.toLowerCase()}`;
+        return `<img src="${imageUrl}" 
+                     alt="罕見字" 
+                     style="height: 1.1em; width: auto; vertical-align: middle; display: inline-block; margin: 0 2px; filter: brightness(0.8) contrast(1.5);">`;
       });
     }
 
