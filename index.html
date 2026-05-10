@@ -130,7 +130,6 @@
   </div>
 
   <script>
-    // --- 此處維持原本的所有邏輯 (init, loadData, switchSheet 等) ---
     let allData = [];
     let filteredData = [];
     let currentPage = 1;
@@ -144,14 +143,14 @@
     async function init() {
       const savedSheet = localStorage.getItem('last_sheet');
       const cachedSheets = localStorage.getItem('cache_sheet_names');
+      
       if (cachedSheets) {
         const names = JSON.parse(cachedSheets);
         currentSheet = (savedSheet && names.includes(savedSheet)) ? savedSheet : names[0];
-        const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
-        currentPage = savedPage ? parseInt(savedPage) : 1;
         setupSheetButtons(names);
-        loadData();
+        loadData(); // loadData 內部會處理頁碼與分類的還原
       }
+
       try {
         const response = await fetch(`${API_URL}?action=getSheets`);
         const names = await response.json();
@@ -159,8 +158,6 @@
           localStorage.setItem('cache_sheet_names', JSON.stringify(names));
           if (!cachedSheets) {
             currentSheet = (savedSheet && names.includes(savedSheet)) ? savedSheet : names[0];
-            const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
-            currentPage = savedPage ? parseInt(savedPage) : 1;
             loadData();
           }
           setupSheetButtons(names);
@@ -168,60 +165,81 @@
       } catch (err) { console.error(err); }
     }
 
-    function setupSheetButtons(names) {
-      const btnContainer = document.getElementById('sheet-buttons');
-      btnContainer.innerHTML = '';
-      names.forEach((name) => {
-        const btn = document.createElement('button');
-        btn.innerText = name;
-        btn.className = (name === currentSheet) ? "btn btn-primary btn-sm" : "btn btn-outline-primary btn-sm";
-        btn.onclick = () => switchSheet(name);
-        btnContainer.appendChild(btn);
-      });
-    }
-
-    function switchSheet(name) {
-      if (currentSheet === name) return;
-      currentSheet = name;
-      localStorage.setItem('last_sheet', name);
-      const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
-      currentPage = savedPage ? parseInt(savedPage) : 1;
-      setupSheetButtons(JSON.parse(localStorage.getItem('cache_sheet_names')));
-      loadData();
-    }
-
+    // --- 修改後的資料讀取邏輯 ---
     async function loadData() {
       const cacheKey = `cache_data_${currentSheet}`;
       const cachedData = localStorage.getItem(cacheKey);
       stopSequence();
+
       if (cachedData) {
         allData = JSON.parse(cachedData);
-        filteredData = allData;
-        render();
+        restoreFilterAndPage(); // 還原分類與頁碼
       }
+
       try {
         const [dataRes, catRes] = await Promise.all([
           fetch(`${API_URL}?sheet=${currentSheet}`),
           fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`).catch(() => null)
         ]);
         const newData = await dataRes.json();
+        
         if (JSON.stringify(newData) !== cachedData) {
           allData = newData;
-          filteredData = allData;
           localStorage.setItem(cacheKey, JSON.stringify(allData));
-          render();
         }
+        
         if (catRes) {
           const categories = await catRes.json();
           updateCategoryUI(categories);
+          restoreFilterAndPage(); // UI 更新後再次確保選單正確
         }
       } catch (err) { console.error(err); }
     }
 
-    // --- 修改後的 Render 函式 ---
+    // --- 【新增】還原分類與頁碼的邏輯 ---
+    function restoreFilterAndPage() {
+      // 1. 還原分類
+      const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
+      document.getElementById('categorySelect').value = savedCat;
+      
+      // 2. 套用篩選
+      applyFilter(savedCat);
+      
+      // 3. 還原頁碼 (必須在篩選後，因為總頁數會變)
+      const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
+      const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
+      currentPage = savedPage ? Math.min(parseInt(savedPage), totalPages) : 1;
+      
+      render();
+    }
+
+    function filterByCategory(cat) {
+      stopSequence();
+      localStorage.setItem(`last_cat_${currentSheet}`, cat); // 儲存分類
+      localStorage.setItem(`last_page_${currentSheet}`, 1);   // 切換分類時通常回到第一頁
+      currentPage = 1;
+      applyFilter(cat);
+      render();
+    }
+
+    // 將篩選邏輯獨立出來
+    function applyFilter(cat) {
+      if (cat === "all") {
+        filteredData = allData;
+      } else if (cat === "my_stars") {
+        const list = getStarredList();
+        filteredData = allData.filter(item => list.includes(String(item.id)));
+      } else {
+        filteredData = allData.filter(item => item.cat === cat);
+      }
+    }
+
     function render() {
       const app = document.getElementById('app');
-      if (!filteredData || filteredData.length === 0) { app.innerHTML = '<div class="col-12 mt-5">目前沒有資料。</div>'; return; }
+      if (!filteredData || filteredData.length === 0) { 
+        app.innerHTML = '<div class="col-12 mt-5 text-center">查無資料。</div>'; 
+        return; 
+      }
       
       const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
       if (currentPage > totalPages) currentPage = totalPages;
@@ -275,24 +293,50 @@
       if (typeof CNS11643 !== 'undefined') { setTimeout(() => CNS11643.fixed(), 150); }
     }
 
-    // --- 剩餘邏輯維持不變 ---
-    function changePage(s) { currentPage += s; localStorage.setItem(`last_page_${currentSheet}`, currentPage); render(); window.scrollTo(0,0); }
+    // 修改分頁儲存，確保換頁時記得住
+    function changePage(s) { 
+      currentPage += s; 
+      localStorage.setItem(`last_page_${currentSheet}`, currentPage); 
+      render(); 
+      window.scrollTo(0,0); 
+    }
+    
     function jumpToPage(v) { 
       const p = parseInt(v); 
       const total = Math.ceil(filteredData.length / itemsPerPage) || 1; 
-      if (p >= 1 && p <= total) { currentPage = p; localStorage.setItem(`last_page_${currentSheet}`, currentPage); render(); window.scrollTo(0,0); } 
+      if (p >= 1 && p <= total) { 
+        currentPage = p; 
+        localStorage.setItem(`last_page_${currentSheet}`, currentPage); 
+        render(); 
+        window.scrollTo(0,0); 
+      } 
     }
+
+    // 切換頁籤
+    function switchSheet(name) {
+      if (currentSheet === name) return;
+      currentSheet = name;
+      localStorage.setItem('last_sheet', name);
+      // 切換頁籤時，讀取該頁籤上次的分類與頁碼
+      setupSheetButtons(JSON.parse(localStorage.getItem('cache_sheet_names')));
+      loadData();
+    }
+
+    // 更新選單時不觸發篩選，僅填充選項
     function updateCategoryUI(categories) {
       const select = document.getElementById('categorySelect');
-      const currentVal = select.value;
+      const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
+      
       select.innerHTML = '<option value="all">全部類別</option><option value="my_stars">⭐ 我的收藏</option>';
       categories.forEach(cat => {
         const opt = document.createElement('option');
         opt.value = opt.innerText = cat;
         select.appendChild(opt);
       });
-      if ([...select.options].some(o => o.value === currentVal)) select.value = currentVal;
+      select.value = savedCat;
     }
+
+    // --- 其餘播放功能維持不變 ---
     function toggleStar(id, event) {
       event.stopPropagation();
       let list = getStarredList();
@@ -303,13 +347,6 @@
       render();
     }
     function getStarredList() { const s = localStorage.getItem('starred_words'); return s ? JSON.parse(s) : []; }
-    function filterByCategory(cat) {
-      stopSequence();
-      if (cat === "all") filteredData = allData;
-      else if (cat === "my_stars") { const list = getStarredList(); filteredData = allData.filter(item => list.includes(String(item.id))); }
-      else { filteredData = allData.filter(item => item.cat === cat); }
-      currentPage = 1; render();
-    }
     function flipCard(e) { e.classList.toggle('is-flipped'); }
     function playSingle(url, label) {
       const audioPlayer = document.getElementById('global-audio');
@@ -332,7 +369,7 @@
       const card = document.querySelector(`[data-id="${item.id}"]`);
       if (card) { card.classList.add('playing-now'); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
       if (item.wordAudio && item.wordAudio !== "null") {
-        playSingle(item.wordAudio, `📢 ${item.word}`);
+        playSingle(item.wordAudio, `📢 語詞：${item.word}`);
         audioPlayer.onended = () => {
           if (item.exampleAudio && item.exampleAudio !== "null") {
             setTimeout(() => { if (isAutoPlaying) { playSingle(item.exampleAudio, `📖 例句：${item.word}`); audioPlayer.onended = () => playNextInPlaylist(); } }, 800);
@@ -361,6 +398,9 @@
     function playOnlyExample(url, name, id) { stopSequence(); document.getElementById('player-container').style.display = 'block'; playSingle(url, `📖 例句：${name}`); }
 
     window.onload = init;
-  </script>
+</script>
 </body>
 </html>
+
+
+
