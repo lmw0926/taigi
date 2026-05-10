@@ -7,9 +7,7 @@
   <title>台語認證練習系統</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-han-sans-tc@5.0.12/index.css">
   <style>
-    /* 1. 引入完整的中日韓擴展字型，確保手機有字庫可抓 */
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&display=swap');
-  
+      
     body {
       font-family:
         "Source Han Sans TC",
@@ -19,11 +17,18 @@
     }
   
     /* 2. 針對罕用字區塊強制使用支援擴展區的字型 */
-    .word-title, .example-box {
-      /* 這裡加入 'Apple Color Emoji' 是為了在 iOS 強制喚醒部分渲染機制 */
-      font-family: 'Noto Sans TC', "PingFang TC", "STHeitiTC-Light", "LiHei Pro", sans-serif;
+    .word-title,
+    .example-box {
+      font-family:
+        "Source Han Sans TC",
+        "Noto Sans CJK TC",
+        "PingFang TC",
+        "Microsoft JhengHei",
+        sans-serif;
+    
       text-rendering: optimizeLegibility;
       -webkit-font-smoothing: antialiased;
+      font-variant-ligatures: none;
     }
 
     .word-title, .example-box {
@@ -40,10 +45,18 @@
         sans-serif;
     }
     
-    .rare-char-fallback {
-      display: inline-block;
-      height: 1em;
-      vertical-align: -0.12em;
+    .rare-char-fallback{
+      display:inline-block;
+      height:1em;
+      width:auto;
+    
+      vertical-align:-0.12em;
+    
+      image-rendering:auto;
+    
+      max-width:none;
+    
+      object-fit:contain;
     }
 
     .card-container { perspective: 1000px; margin-bottom: 20px; }
@@ -199,9 +212,10 @@
 
     // 處理字串中的 &#x...; 並轉為圖片 (改用更穩定的圖片來源)
     // ===== 罕字檢測快取 =====
+// ===== 快取 =====
 const glyphCache = {};
 
-// ===== 檢查裝置是否真的能顯示該字 =====
+// ===== 字型檢測 =====
 function canRenderChar(char) {
 
   if (glyphCache[char] !== undefined) {
@@ -209,44 +223,87 @@ function canRenderChar(char) {
   }
 
   const canvas = document.createElement("canvas");
+  canvas.width = 80;
+  canvas.height = 80;
+
   const ctx = canvas.getContext("2d");
 
-  // 使用手機常見字型
-  ctx.font = '32px "PingFang TC", "Noto Sans CJK TC", sans-serif';
+  ctx.textBaseline = "top";
 
-  // 取得目標字寬
-  const target = ctx.measureText(char).width;
+  // 重要：
+  // iOS 要把 PingFang 放前面
+  ctx.font =
+    '56px "PingFang TC","Source Han Sans TC","Noto Sans CJK TC",sans-serif';
 
-  // Unicode replacement char
-  const tofu = ctx.measureText("\uFFFD").width;
+  // ===== 畫 tofu =====
+  ctx.clearRect(0, 0, 80, 80);
+  ctx.fillText("\uFFFD", 0, 0);
 
-  // 空字寬
-  const empty = ctx.measureText("").width;
+  const tofu =
+    ctx.getImageData(0, 0, 80, 80).data.join("");
 
-  const ok = (
-    target !== tofu &&
-    target !== empty &&
-    target > 0
-  );
+  // ===== 畫目標字 =====
+  ctx.clearRect(0, 0, 80, 80);
+  ctx.fillText(char, 0, 0);
+
+  const glyph =
+    ctx.getImageData(0, 0, 80, 80).data.join("");
+
+  // ===== 比對 =====
+  const ok =
+    glyph !== tofu &&
+    glyph.length > 0;
 
   glyphCache[char] = ok;
 
   return ok;
 }
 
-// ===== 建立 fallback SVG =====
-function makeFallbackSVG(char) {
+// ===== CNS fallback =====
+function makeCNSImage(unicode, char) {
+
+  const hex =
+    unicode
+      .toString(16)
+      .toUpperCase()
+      .padStart(4, "0");
+
+  const url =
+`https://www.cns11643.gov.tw/AIDB/png.do?font=0&code=${hex}`;
+
+  return `
+<img
+  class="rare-char-fallback"
+  src="${url}"
+  alt="${char}"
+  title="${char}"
+  loading="lazy"
+  referrerpolicy="no-referrer"
+  onerror="this.onerror=null;this.src='${makeSVGData(char)}';"
+/>`;
+}
+
+// ===== SVG fallback =====
+function makeSVGData(char) {
 
   const svg =
-`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+`<svg xmlns="http://www.w3.org/2000/svg"
+      width="64"
+      height="64"
+      viewBox="0 0 64 64">
+
+  <rect width="100%" height="100%" fill="white"/>
+
   <text
     x="50%"
     y="50%"
-    dominant-baseline="central"
+    dominant-baseline="middle"
     text-anchor="middle"
-    font-size="52"
+    font-size="54"
     font-family="serif">
+
     ${char}
+
   </text>
 </svg>`;
 
@@ -265,24 +322,30 @@ function fixRareChars(text) {
 
       let unicode;
 
-      // 十六進位
-      if (code.toLowerCase().startsWith('x')) {
-        unicode = parseInt(code.substring(1), 16);
+      // ===== 十六進位 =====
+      if (/^[xX]/.test(code)) {
+
+        unicode =
+          parseInt(code.slice(1), 16);
+
+      } else {
+
+        unicode =
+          parseInt(code, 10);
       }
 
-      // 十進位
-      else {
-        unicode = parseInt(code, 10);
-      }
-
-      // 防呆
-      if (!unicode || unicode < 0) {
+      // ===== 防呆 =====
+      if (
+        Number.isNaN(unicode) ||
+        unicode <= 0
+      ) {
         return match;
       }
 
-      const char = String.fromCodePoint(unicode);
+      const char =
+        String.fromCodePoint(unicode);
 
-      // ===== 裝置能顯示 =====
+      // ===== 可顯示 =====
       if (canRenderChar(char)) {
 
         return `
@@ -291,15 +354,8 @@ ${char}
 </span>`;
       }
 
-      // ===== fallback SVG =====
-      const svgData = makeFallbackSVG(char);
-
-      return `
-<img
-  class="rare-char-fallback"
-  src="${svgData}"
-  alt="${char}"
-/>`;
+      // ===== fallback =====
+      return makeCNSImage(unicode, char);
     }
   );
 }
