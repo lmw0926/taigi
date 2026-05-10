@@ -50,7 +50,13 @@
     .nav-btn-overlay:hover { opacity: 1; }
 
     /* 離開播放時的高亮提醒 */
-    .highlight-card { outline: 4px solid #ffc107; outline-offset: 4px; transition: outline 0.5s; }
+    .highlight-card { 
+      outline: 4px solid #ffc107; 
+      outline-offset: 4px; 
+      box-shadow: 0 0 30px #ffc107 !important;
+      transform: scale(1.02);
+      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+    }
   </style>
 </head>
 <body>
@@ -165,7 +171,6 @@
       localStorage.setItem(`last_page_${currentSheet}`, currentPage);
     }
 
-    // 優化 1：為外層 div 加入標記 ID
     function createCardHTML(item, isOverlay = false) {
       const isStarred = starredList.includes(String(item.id));
       const hasExample = item.example && item.example !== "null" && item.example !== "";
@@ -202,13 +207,12 @@
       if (nextPage >= 1 && nextPage <= total) jumpToPage(nextPage);
     }
 
-    // 修改 jumpToPage，增加一個參數控制是否要滾動到頂部（自動播放時不滾動）
     function jumpToPage(val, autoScroll = true) {
       currentPage = parseInt(val);
       const sel = document.getElementById('pageJumpSelect');
       if (sel) sel.value = currentPage; 
       render();
-      if (autoScroll) window.scrollTo(0,0);
+      if (autoScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function updatePageJumpSelect() {
@@ -222,7 +226,14 @@
     function playSingleSlide(id) { currentMode = "single"; startPlayback(id); }
     function playCurrentPage() { currentMode = "page"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
     function playAllContinuous() { currentMode = "all"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
-    function startPlayback(id) { isPlaying = true; document.getElementById('slideshow-overlay').style.display = 'flex'; document.getElementById('player-container').style.display = 'block'; playlistIdx = filteredData.findIndex(i => String(i.id) === String(id)); showSlide(); }
+    
+    function startPlayback(id) { 
+      isPlaying = true; 
+      document.getElementById('slideshow-overlay').style.display = 'flex'; 
+      document.getElementById('player-container').style.display = 'block'; 
+      playlistIdx = filteredData.findIndex(i => String(i.id) === String(id)); 
+      showSlide(); 
+    }
     
     function showSlide() { 
       if (!isPlaying || playlistIdx === -1) return; 
@@ -244,69 +255,71 @@
       }; 
     }
 
-    function handleSequenceEnd() { if (!isPlaying) return; if (currentMode === "single") { stopSequence(); return; } if (currentMode === "page" && playlistIdx >= (currentPage * itemsPerPage) - 1) { stopSequence(); return; } manualNext(); }
+    // 整合：自動播放結束也調用 stopSequence 進行定位
+    function handleSequenceEnd() { 
+      if (!isPlaying) return; 
+      const isPageEnd = (currentMode === "page" && playlistIdx >= (currentPage * itemsPerPage) - 1);
+      const isAllEnd = (playlistIdx >= filteredData.length - 1);
+
+      if (currentMode === "single" || isPageEnd || isAllEnd) { 
+        stopSequence(); 
+        return; 
+      } 
+      manualNext(); 
+    }
+
     function manualNext() { if (playlistIdx < filteredData.length - 1) { playlistIdx++; syncPageByTrack(); showSlide(); } else stopSequence(); }
     function manualPrev() { if (playlistIdx > 0) { playlistIdx--; syncPageByTrack(); showSlide(); } }
     
-    // 優化 2：同步頁面但不滾動頂部，確保卡片元素存在於 DOM 中
     function syncPageByTrack() { 
       const targetPage = Math.floor(playlistIdx / itemsPerPage) + 1; 
       if (targetPage !== currentPage) { 
-        jumpToPage(targetPage, false); // false 代表不要捲動到最上面，以免干擾自動播放邏輯
+        jumpToPage(targetPage, false); 
       } 
     }
 
-    // 優化 3：停止時自動捲動到該卡片位置
+    // 核心整合：停止並置中定位最後一張卡片
     function stopSequence() { 
       const lastPlayedItem = filteredData[playlistIdx];
       isPlaying = false; 
       document.getElementById('slideshow-overlay').style.display = 'none'; 
       document.getElementById('player-container').style.display = 'none'; 
       document.getElementById('global-audio').pause(); 
-    
+
       if (!lastPlayedItem) return;
-    
-      // 1. 強制確保分頁正確
+
+      // 1. 確認頁次正確
       const targetPage = Math.floor(playlistIdx / itemsPerPage) + 1;
       if (currentPage !== targetPage) {
         jumpToPage(targetPage, false); 
       }
-    
-      // 2. 使用「遞迴檢查」機制，確保卡片元素真的長出來了才捲動
-      let retryCount = 0;
-      const tryScroll = () => {
+
+      // 2. 遞迴偵測與置中捲動
+      let attempts = 0;
+      const tryCenterCard = () => {
         const targetEl = document.getElementById(`card-pos-${lastPlayedItem.id}`);
         
         if (targetEl) {
-          // 成功找到卡片，執行捲動
+          // 執行平滑捲動並置中
           targetEl.scrollIntoView({ 
             behavior: 'smooth', 
             block: 'center' 
           });
-    
-          // 顯眼的黃色高亮特效
+
+          // 視覺高亮提醒
           const cardInner = targetEl.querySelector('.word-card');
           if (cardInner) {
             cardInner.classList.add('highlight-card');
-            // 額外強制加上樣式以防 CSS 沒讀到
-            cardInner.style.boxShadow = "0 0 30px #ffc107";
-            cardInner.style.border = "4px solid #ffc107";
-            
-            setTimeout(() => {
-              cardInner.classList.remove('highlight-card');
-              cardInner.style.boxShadow = "";
-              cardInner.style.border = "";
-            }, 2500);
+            setTimeout(() => cardInner.classList.remove('highlight-card'), 2500);
           }
-        } else if (retryCount < 10) {
-          // 如果還沒長出來，每 100ms 再試一次，最多試 1 秒
-          retryCount++;
-          setTimeout(tryScroll, 100);
+        } else if (attempts < 15) { 
+          attempts++;
+          setTimeout(tryCenterCard, 100);
         }
       };
-    
-      // 啟動偵測
-      setTimeout(tryScroll, 150); 
+
+      // 延遲啟動確保 DOM 已穩定
+      setTimeout(tryCenterCard, 200); 
     }
 
     function switchSheet(val) { currentSheet = val; localStorage.setItem('last_sheet', val); loadData(); }
