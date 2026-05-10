@@ -258,26 +258,48 @@
 
     // 優化 3：停止時自動捲動到該卡片位置
     function stopSequence() { 
-      const lastPlayedId = filteredData[playlistIdx]?.id;
+      const lastPlayedItem = filteredData[playlistIdx];
       isPlaying = false; 
       document.getElementById('slideshow-overlay').style.display = 'none'; 
       document.getElementById('player-container').style.display = 'none'; 
       document.getElementById('global-audio').pause(); 
-
-      if (lastPlayedId) {
-        // 給予一點點延遲確保遮罩關閉與 DOM 穩定
-        setTimeout(() => {
-          const targetEl = document.getElementById(`card-pos-${lastPlayedId}`);
-          if (targetEl) {
-            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-            // 視覺特效：閃爍一下提醒使用者在哪裡
-            const cardInner = targetEl.querySelector('.word-card');
-            cardInner.classList.add('highlight-card');
-            setTimeout(() => cardInner.classList.remove('highlight-card'), 2000);
-          }
-        }, 300);
+    
+      if (!lastPlayedItem) return;
+    
+      // 1. 強制切換到正確的頁次
+      const targetPage = Math.floor(playlistIdx / itemsPerPage) + 1;
+      if (currentPage !== targetPage) {
+        // 這裡設為 false 代表不要讓 jumpToPage 自己捲動到頂部，我們要自己控制位置
+        jumpToPage(targetPage, false); 
       }
+    
+      // 2. 核心修正：給予足夠的延遲 (300ms)，確保瀏覽器已經把卡片「畫」出來
+      setTimeout(() => {
+        const targetEl = document.getElementById(`card-pos-${lastPlayedItem.id}`);
+        
+        if (targetEl) {
+          // 3. 執行捲動：平滑捲動，並置於視窗中心
+          targetEl.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+    
+          // 4. 加個亮框特效，讓你知道停在哪裡
+          const cardInner = targetEl.querySelector('.word-card');
+          if (cardInner) {
+            cardInner.style.transition = "all 0.5s";
+            cardInner.style.boxShadow = "0 0 25px #ffc107";
+            cardInner.style.border = "4px solid #ffc107";
+            
+            setTimeout(() => {
+              cardInner.style.boxShadow = "";
+              cardInner.style.border = "";
+            }, 2000);
+          }
+        } else {
+          console.log("找不到元素：", `card-pos-${lastPlayedItem.id}`);
+        }
+      }, 300); 
     }
 
     function switchSheet(val) { currentSheet = val; localStorage.setItem('last_sheet', val); loadData(); }
