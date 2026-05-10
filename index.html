@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證系統 - 捲動定位修復版</title>
+  <title>台語認證系統 - 全程自動捲動版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
@@ -22,17 +22,14 @@
     .word-card.is-flipped { transform: rotateY(180deg); }
     .word-card.playing-mode { width: 85vw !important; height: 75vh !important; max-width: 700px; max-height: 850px; margin: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.7); z-index: 2001; cursor: default; }
     
-    /* 離開後的高亮效果：讓使用者知道定位在哪 */
-    .word-card.last-played { border: 4px solid #007bff !important; box-shadow: 0 0 20px rgba(0,123,255,0.4) !important; }
+    /* 播放中背景卡片的高亮樣式 */
+    .word-card.active-play { border: 4px solid #007bff !important; box-shadow: 0 0 20px rgba(0,123,255,0.5) !important; }
 
     .card-front, .card-back { position: absolute; top: 0; left: 0; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 16px; padding: 30px; display: flex; flex-direction: column; overflow: hidden; }
     .card-front { border-left: 10px solid #007bff; }
     .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 10px solid #28a745; overflow-y: auto; }
     
     .card-controls-right { position: absolute; top: 15px; right: 20px; display: flex; align-items: center; gap: 12px; z-index: 10; }
-    .item-id-badge { color: #adb5bd; font-size: 1rem; font-weight: bold; }
-    .star-btn { font-size: 1.6rem; color: #ffc107; cursor: pointer; }
-
     .word-title { font-size: 2.8rem; font-weight: 700; color: #1a202c; line-height: 1.2; display: flex; align-items: center; gap: 12px; }
     .ipa-text { color: #e67e22; font-size: 1.8rem; font-family: 'Courier New', monospace; margin-top: 5px; }
 
@@ -82,7 +79,7 @@
     const API_URL = "https://script.google.com/a/macros/guo.kh.edu.tw/s/AKfycbw_OHgjTJqP6OvnIYZl2L9XkkH_DacnLfcQHipsGX0EQg4OsU7dxo6LuH9862I-nSo_1g/exec";
     
     let allData = [], filteredData = [], currentPage = 1, itemsPerPage = 10, currentSheet = "";
-    let currentMode = "none", playlistIdx = 0, isPlaying = false;
+    let playlistIdx = 0, isPlaying = false;
     let starredList = JSON.parse(localStorage.getItem('starred_words') || "[]");
 
     async function init() {
@@ -92,11 +89,11 @@
       document.getElementById('sheetSelect').innerHTML = names.map(n => `<option value="${n}" ${n===currentSheet?'selected':''}>📚 ${n}</option>`).join('');
       await loadData();
       
-      window.addEventListener('keydown', function(e) {
+      window.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && isPlaying) {
           e.preventDefault();
           const audio = document.getElementById('global-audio');
-          if (audio.paused) audio.play(); else audio.pause();
+          audio.paused ? audio.play() : audio.pause();
         }
       });
     }
@@ -120,14 +117,6 @@
       render();
     }
 
-    function toggleStar(id) {
-      id = String(id);
-      starredList = starredList.includes(id) ? starredList.filter(i => i !== id) : [...starredList, id];
-      localStorage.setItem('starred_words', JSON.stringify(starredList));
-      if (document.getElementById('categorySelect').value === "my_stars") { applyFilter("my_stars"); updatePageJumpSelect(); }
-      render();
-    }
-
     function applyFilter(cat) {
       document.getElementById('categorySelect').value = cat;
       if (cat === "my_stars") filteredData = allData.filter(item => starredList.includes(String(item.id)));
@@ -138,9 +127,7 @@
     function handleCategoryChange(val) {
       localStorage.setItem(`last_cat_${currentSheet}`, val);
       applyFilter(val);
-      currentPage = 1;
-      updatePageJumpSelect();
-      render();
+      currentPage = 1; updatePageJumpSelect(); render();
     }
 
     function render() {
@@ -153,9 +140,6 @@
 
     function createCardHTML(item, isOverlay = false) {
       const isStarred = starredList.includes(String(item.id));
-      const hasExample = item.example && item.example !== "null" && item.example !== "";
-      const hasDict = item.dictUrl && item.dictUrl !== "null" && item.dictUrl !== "";
-
       return `
         <div class="col" id="card-wrapper-${item.id}">
           <div class="word-card ${isOverlay ? 'playing-mode' : ''}" onclick="${isOverlay ? '' : 'this.classList.toggle(\'is-flipped\')'}">
@@ -168,23 +152,14 @@
                 <button class="btn btn-primary rounded-circle me-4" style="width:50px; height:50px; flex-shrink:0;" onclick="event.stopPropagation(); playSingleSlide('${item.id}')">
                    <i class="bi bi-play-fill fs-4"></i>
                 </button>
-                <div class="word-title">
-                  ${item.word}
-                  ${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" onclick="event.stopPropagation();"><i class="bi bi-link-45deg"></i></a>` : ''}
-                </div>
+                <div class="word-title">${item.word}</div>
               </div>
               <div class="ipa-text">${item.ipa || ''}</div>
-              ${hasExample ? `<div class="example-box"><span class="badge bg-secondary mb-2 fs-6">例：</span><br>${item.example}</div>` : ''}
+              ${item.example ? `<div class="example-box"><span class="badge bg-secondary mb-2 fs-6">例：</span><br>${item.example}</div>` : ''}
             </div>
             <div class="card-back"><div class="p-3"><h4 class="text-success border-bottom pb-2">【解釋】</h4><p style="font-size: 1.5rem;">${item.meaning || '尚未提供'}</p></div></div>
           </div>
         </div>`;
-    }
-
-    function changePage(s) {
-      const total = Math.ceil(filteredData.length / itemsPerPage);
-      const nextPage = currentPage + s;
-      if (nextPage >= 1 && nextPage <= total) jumpToPage(nextPage, false);
     }
 
     function jumpToPage(val, scrollToTop = false) {
@@ -202,18 +177,28 @@
       document.getElementById('pageJumpSelect').innerHTML = options;
     }
 
-    function toggleFlip(el) { el.querySelector('.word-card').classList.toggle('is-flipped'); }
     function playSingleSlide(id) { currentMode = "single"; startPlayback(id); }
     function playCurrentPage() { currentMode = "page"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
     function playAllContinuous() { currentMode = "all"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
-    function startPlayback(id) { isPlaying = true; document.getElementById('slideshow-overlay').style.display = 'flex'; document.getElementById('player-container').style.display = 'block'; playlistIdx = filteredData.findIndex(i => String(i.id) === String(id)); showSlide(); }
+    
+    function startPlayback(id) { 
+      isPlaying = true; 
+      document.getElementById('slideshow-overlay').style.display = 'flex'; 
+      document.getElementById('player-container').style.display = 'block'; 
+      playlistIdx = filteredData.findIndex(i => String(i.id) === String(id)); 
+      showSlide(); 
+    }
     
     function showSlide() { 
       if (!isPlaying || playlistIdx === -1) return; 
       const item = filteredData[playlistIdx]; 
       document.getElementById('slide-content').innerHTML = createCardHTML(item, true); 
-      const audio = document.getElementById('global-audio'); 
       document.getElementById('current-word').innerText = item.word; 
+
+      // --- 核心修正：播放時同步執行捲動 ---
+      syncBackgroundScroll(item.id);
+
+      const audio = document.getElementById('global-audio'); 
       audio.src = item.wordAudio.replace("dl=0", "raw=1"); 
       audio.play(); 
       audio.onended = () => { 
@@ -228,49 +213,52 @@
       }; 
     }
 
-    function handleSequenceEnd() { if (!isPlaying) return; if (currentMode === "single") { stopSequence(); return; } if (currentMode === "page" && playlistIdx >= (currentPage * itemsPerPage) - 1) { stopSequence(); return; } manualNext(); }
-    function manualNext() { if (playlistIdx < filteredData.length - 1) { playlistIdx++; syncPageByTrack(); showSlide(); } else stopSequence(); }
-    function manualPrev() { if (playlistIdx > 0) { playlistIdx--; syncPageByTrack(); showSlide(); } }
-    
-    function syncPageByTrack() { 
-      const targetPage = Math.floor(playlistIdx / itemsPerPage) + 1; 
-      if (targetPage !== currentPage) { 
-        jumpToPage(targetPage, false); 
-      } 
+    // 新增：播放中背景同步捲動邏輯
+    function syncBackgroundScroll(id) {
+      const targetPage = Math.floor(playlistIdx / itemsPerPage) + 1;
+      
+      // 如果跨頁了，先翻頁
+      if (currentPage !== targetPage) {
+        jumpToPage(targetPage, false);
+      }
+
+      // 延遲一點點確保 DOM 已經 render 出來
+      setTimeout(() => {
+        const element = document.getElementById(`card-wrapper-${id}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // 清除所有舊的高亮
+          document.querySelectorAll('.word-card').forEach(c => c.classList.remove('active-play'));
+          // 標記目前正在播的這張
+          element.querySelector('.word-card').classList.add('active-play');
+        }
+      }, 100);
     }
 
-    // 關鍵修正：確保停止時，網頁背景一定要跟著動
+    function handleSequenceEnd() { 
+        if (!isPlaying) return; 
+        if (currentMode === "single") { stopSequence(); return; } 
+        if (currentMode === "page" && playlistIdx >= (currentPage * itemsPerPage) - 1) { stopSequence(); return; } 
+        manualNext(); 
+    }
+
+    function manualNext() { if (playlistIdx < filteredData.length - 1) { playlistIdx++; showSlide(); } else stopSequence(); }
+    function manualPrev() { if (playlistIdx > 0) { playlistIdx--; showSlide(); } }
+    
     function stopSequence() { 
-      const lastPlayedItem = filteredData[playlistIdx];
       isPlaying = false; 
       document.getElementById('slideshow-overlay').style.display = 'none'; 
       document.getElementById('player-container').style.display = 'none'; 
       document.getElementById('global-audio').pause(); 
-
-      if (!lastPlayedItem) return;
-
-      // 1. 先確認目前分頁是否正確 (防止手動切換導致的錯位)
-      const correctPage = Math.floor(playlistIdx / itemsPerPage) + 1;
-      if (currentPage !== correctPage) {
-        jumpToPage(correctPage, false);
-      }
-
-      // 2. 延遲執行捲動，給 render() 一點時間生成 DOM
-      setTimeout(() => {
-        const element = document.getElementById(`card-wrapper-${lastPlayedItem.id}`);
-        if (element) {
-          // 3. 捲動到視窗中央
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          
-          // 4. 高亮提示
-          const card = element.querySelector('.word-card');
-          card.classList.add('last-played');
-          setTimeout(() => card.classList.remove('last-played'), 2500);
-        }
-      }, 150); // 150ms 延遲是為了確保分頁渲染完成
+      // 停止後保持在最後播的卡片位置
+      const item = filteredData[playlistIdx];
+      if (item) syncBackgroundScroll(item.id);
     }
 
     function switchSheet(val) { currentSheet = val; localStorage.setItem('last_sheet', val); loadData(); }
+    function toggleFlip(el) { el.querySelector('.word-card').classList.toggle('is-flipped'); }
+    function changePage(s) { const total = Math.ceil(filteredData.length / itemsPerPage); const nextPage = currentPage + s; if (nextPage >= 1 && nextPage <= total) jumpToPage(nextPage, true); }
+    function toggleStar(id) { id = String(id); starredList = starredList.includes(id) ? starredList.filter(i => i !== id) : [...starredList, id]; localStorage.setItem('starred_words', JSON.stringify(starredList)); render(); }
 
     window.onload = init;
   </script>
