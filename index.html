@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證練習系統 - 記憶功能版</title>
+  <title>台語認證練習系統 - 投影片播放版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
@@ -16,33 +16,50 @@
       padding-bottom: 140px !important; 
     }
 
-    /* 播放時的發亮與加高效果 */
-    @keyframes pulse-blue {
-      0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
-      70% { box-shadow: 0 0 0 15px rgba(0, 123, 255, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
-    }
-    .playing-highlight {
-      border: 3px solid #007bff !important;
-      animation: pulse-blue 2s infinite;
-      transform: scale(1.02);
-      z-index: 10;
-      background-color: #eef7ff !important;
-      min-height: 450px !important; 
+    /* --- 投影片遮罩層 --- */
+    #slideshow-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 2000;
+      display: none; /* 預設隱藏 */
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px);
     }
 
-    /* 卡片基礎設計 */
+    #slide-content {
+      width: 90%;
+      max-width: 600px;
+      transform: scale(0.9);
+      opacity: 0;
+      transition: all 0.5s ease;
+    }
+
+    /* 投影片啟動時的動畫 */
+    #slide-content.active {
+      transform: scale(1.1);
+      opacity: 1;
+    }
+
+    /* 播放中卡片的特殊樣式 (在遮罩內) */
+    #slide-content .word-card {
+      min-height: 450px !important;
+      cursor: default;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+
+    #slide-content .example-box {
+      font-size: 1.8rem;
+      background: #fff;
+    }
+
+    /* --- 原有卡片樣式 --- */
     .card-container { perspective: 1000px; margin-bottom: 20px; position: relative; }
     .word-card { 
-      width: 100%; 
-      min-height: 280px; 
-      transition: transform 0.6s, min-height 0.4s ease, box-shadow 0.3s; 
-      transform-style: preserve-3d; 
-      position: relative; 
-      cursor: pointer;
-      background-color: white;
-      border-radius: 12px;
-      border: 1px solid #ddd;
+      width: 100%; min-height: 280px; 
+      transition: transform 0.6s, min-height 0.4s ease; 
+      transform-style: preserve-3d; position: relative; 
+      background-color: white; border-radius: 12px; border: 1px solid #ddd;
     }
     .word-card.is-flipped { transform: rotateY(180deg); }
 
@@ -53,99 +70,63 @@
     }
 
     .card-front { border-left: 6px solid #007bff; z-index: 2; }
-    .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 6px solid #28a745; overflow-y: auto; }
+    .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 6px solid #28a745; }
     
-    .word-card.starred-border { background-color: #fffdf0 !important; }
-    .word-card.starred-border .card-front { border-left: 6px solid #f1c40f; }
-
-    /* 例句框設計 */
     .example-box { 
-      background: #f1f3f5; 
-      padding: 10px; 
-      border-left: 4px solid #3498db; 
-      font-size: 1.5rem; 
-      color: #34495e; 
-      border-radius: 0 4px 4px 0; 
-      flex-grow: 1; 
-      transition: all 0.4s ease-in-out;
-      overflow-y: auto; 
-      line-height: 1.5; 
-      text-align: left;
-      cursor: zoom-in;
-      position: relative;
+      background: #f1f3f5; padding: 10px; border-left: 4px solid #3498db; 
+      font-size: 1.5rem; color: #34495e; border-radius: 0 4px 4px 0; 
+      flex-grow: 1; transition: all 0.4s ease; overflow-y: auto; cursor: zoom-in;
     }
-
-    /* 放大狀態 */
-    .example-box.expanded {
-      position: absolute;
-      top: 10px; left: 10px; right: 10px; bottom: 10px;
-      z-index: 100;
-      background: rgba(255, 255, 255, 0.98);
-      border: 2px solid #3498db;
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-      cursor: zoom-out;
-      overflow-y: auto;
-      font-size: 2.2rem;
-    }
-
-    .example-label { font-size: 0.9rem; color: #7f8c8d; font-weight: bold; margin-right: 5px; }
-
-    .word-header { display: flex; align-items: center; margin-bottom: 10px; width: 100%; }
-    .word-title { font-size: 2rem; color: #2c3e50; font-weight: bold; }
-    .word-no { font-size: 0.85rem; color: #95a5a6; margin-left: auto; }
-    .ipa-text { color: #e67e22; font-size: 1.5rem; margin-bottom: 8px; margin-left: 47px; }
-    .badge-group { margin-bottom: 12px; margin-left: 47px; display: flex; gap: 5px; }
-    .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; background-color: #2ecc71; color: white; }
-
-    .play-icon-btn { background: #007bff; color: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: none; margin-right: 12px; flex-shrink: 0; }
-    .star-btn { background: none; border: none; font-size: 1.6rem; color: #ccc; cursor: pointer; padding: 0 5px; }
-    .star-btn.active { color: #f1c40f; }
     
-    #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; box-shadow: 0 -2px 15px rgba(0,0,0,0.1); padding: 15px; display: none; z-index: 1000; }
+    /* 點擊放大 */
+    .example-box.expanded {
+      position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px;
+      z-index: 100; background: white; border: 2px solid #3498db;
+      padding: 20px; font-size: 2.2rem; cursor: zoom-out;
+    }
+
+    .word-title { font-size: 2rem; color: #2c3e50; font-weight: bold; }
+    .ipa-text { color: #e67e22; font-size: 1.5rem; margin-left: 47px; }
+
+    #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 15px; display: none; z-index: 2100; border-top: 2px solid #007bff; }
     .player-flex { display: flex; align-items: center; gap: 15px; max-width: 800px; margin: 0 auto; }
-    #current-word { font-weight: bold; font-size: 1rem; color: #007bff; min-width: 100px; }
-    audio { flex-grow: 1; height: 40px; }
   </style>
 </head>
 <body>
 
+  <div id="slideshow-overlay">
+    <div id="slide-content"></div>
+  </div>
+
   <div id="sheet-buttons" class="d-flex justify-content-center flex-wrap gap-2 mb-3"></div>
   
   <div class="d-grid gap-2 mb-3">
-    <button class="btn btn-success fw-bold" onclick="playAllOnPage()">🎧 播放本頁 (播完即止)</button>
+    <button class="btn btn-success fw-bold" onclick="playAllOnPage()">🎧 播放本頁 (投影片模式)</button>
     <button class="btn btn-warning fw-bold" onclick="playEverything()">🚀 全部播放 (自動換頁)</button>
   </div>
 
   <div class="row mb-3">
     <div class="col-12">
-      <div class="input-group">
-        <label class="input-group-text">篩選分類</label>
-        <select class="form-select" id="categorySelect" onchange="filterByCategory(this.value)">
-          <option value="all">全部類別</option>
-          <option value="my_stars">⭐ 我的收藏</option>
-        </select>
-      </div>
+      <select class="form-select" id="categorySelect" onchange="filterByCategory(this.value)">
+        <option value="all">全部類別</option>
+        <option value="my_stars">⭐ 我的收藏</option>
+      </select>
     </div>
   </div>
 
   <div id="app" class="row row-cols-1 row-cols-md-2 g-3"></div>
 
-  <div id="pagination" class="d-flex justify-content-between align-items-center mt-4 mb-5">
-    <button id="prevBtn" class="btn btn-outline-primary" onclick="changePage(-1)">上一頁</button>
-    <div class="d-flex align-items-center gap-2">
-      <input type="number" id="pageInput" class="form-control text-center" style="width: 70px;" onchange="jumpToPage(this.value)">
-      <span id="totalPages">/ 頁</span>
-    </div>
-    <button id="nextBtn" class="btn btn-outline-primary" onclick="changePage(1)">下一頁</button>
+  <div id="pagination" class="d-flex justify-content-between align-items-center mt-4">
+    <button class="btn btn-outline-primary" onclick="changePage(-1)">上一頁</button>
+    <div id="totalPages">/ 頁</div>
+    <button class="btn btn-outline-primary" onclick="changePage(1)">下一頁</button>
   </div>
 
   <div id="player-container">
     <div class="player-flex">
       <div id="current-word">尚未播放</div>
       <audio id="global-audio" controls></audio>
-      <button class="btn btn-sm btn-outline-danger" onclick="stopSequence()">停止</button>
+      <button class="btn btn-danger" onclick="stopSequence()">停止</button>
     </div>
   </div>
 
@@ -155,52 +136,31 @@
     let currentSheet = "", playlist = [], playlistIdx = 0, isAutoPlaying = false, isCrossPageMode = false;
 
     async function init() {
-      // 1. 恢復上次存取的 Sheet 
       const savedSheet = localStorage.getItem('last_sheet');
-      try {
-        const response = await fetch(`${API_URL}?action=getSheets`);
-        const names = await response.json();
-        if (names && names.length > 0) {
-          currentSheet = (savedSheet && names.includes(savedSheet)) ? savedSheet : names[0];
-          setupSheetButtons(names);
-          await loadData();
-        }
-      } catch (err) { console.error(err); }
+      const response = await fetch(`${API_URL}?action=getSheets`);
+      const names = await response.json();
+      currentSheet = (savedSheet && names.includes(savedSheet)) ? savedSheet : names[0];
+      setupSheetButtons(names);
+      await loadData();
     }
 
     async function loadData() {
-      if (!currentSheet) return;
-      try {
-        const [dataRes, catRes] = await Promise.all([
-          fetch(`${API_URL}?sheet=${currentSheet}`),
-          fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`).catch(() => null)
-        ]);
-        allData = await dataRes.json();
-        if (catRes) updateCategoryUI(await catRes.json());
-        
-        // 2. 恢復分類與頁碼
-        const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
-        const savedPage = localStorage.getItem(`last_page_${currentSheet}`) || 1;
-        
-        document.getElementById('categorySelect').value = savedCat;
-        applyFilter(savedCat);
-        
-        const maxPage = Math.ceil(filteredData.length / itemsPerPage) || 1;
-        currentPage = Math.min(parseInt(savedPage), maxPage);
-        
-        render();
-      } catch (err) { console.error(err); }
-    }
-
-    function processAndRender() {
-      const cat = document.getElementById('categorySelect').value;
-      applyFilter(cat);
+      const [dataRes, catRes] = await Promise.all([
+        fetch(`${API_URL}?sheet=${currentSheet}`),
+        fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`).catch(() => null)
+      ]);
+      allData = await dataRes.json();
+      const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
+      const savedPage = localStorage.getItem(`last_page_${currentSheet}`) || 1;
+      document.getElementById('categorySelect').value = savedCat;
+      applyFilter(savedCat);
+      currentPage = parseInt(savedPage);
       render();
     }
 
     function applyFilter(cat) {
       if (cat === "my_stars") {
-        const list = getStarredList();
+        const list = JSON.parse(localStorage.getItem('starred_words') || "[]");
         filteredData = allData.filter(item => list.includes(String(item.id)));
       } else if (cat !== "all") {
         filteredData = allData.filter(item => item.cat === cat);
@@ -211,179 +171,130 @@
       const app = document.getElementById('app');
       const start = (currentPage - 1) * itemsPerPage;
       const pagedData = filteredData.slice(start, start + itemsPerPage);
-      const starredList = getStarredList();
-
-      app.innerHTML = pagedData.map(item => {
-        const isStarred = starredList.includes(String(item.id));
-        return `
-          <div class="col card-container">
-            <div class="word-card ${isStarred ? 'starred-border' : ''}" id="card-${item.id}" onclick="flipCard(this)">
-              <div class="card-front">
-                <div class="word-header">
-                  <button class="play-icon-btn" onclick="event.stopPropagation(); jumpToAndPlay('${item.id}')">▶</button>
-                  <span class="word-title">${item.word}</span>
-                  <button class="star-btn ${isStarred ? 'active' : ''}" onclick="toggleStar('${item.id}', event)">★</button>
-                  <span class="word-no">#${item.id}</span>
-                </div>
-                <div class="ipa-text">${item.ipa || ''}</div>
-                <div class="badge-group"><span class="badge">${item.cat || '未分類'}</span></div>
-                <div class="example-box" onclick="toggleExampleExpansion(this, event)">
-                  <span class="example-label">例句：</span>${item.example || '（暫無例句）'}
-                </div>
-              </div>
-              <div class="card-back">
-                <div class="word-header"><span class="word-title text-success">解釋</span></div>
-                <div class="mt-2 text-start flex-grow-1"><strong>華語詞義：</strong><p class="mt-2">${item.meaning || '尚未填寫'}</p></div>
-              </div>
-            </div>
-          </div>`;
-      }).join('');
-      
-      document.getElementById('pageInput').value = currentPage;
-      const total = Math.ceil(filteredData.length / itemsPerPage) || 1;
-      document.getElementById('totalPages').innerText = `/ ${total} 頁`;
-      
-      // 記憶目前頁面
+      app.innerHTML = pagedData.map(item => createCardHTML(item)).join('');
+      document.getElementById('totalPages').innerText = `第 ${currentPage} / ${Math.ceil(filteredData.length / itemsPerPage) || 1} 頁`;
       localStorage.setItem(`last_page_${currentSheet}`, currentPage);
-      
       if (window.CNS11643) setTimeout(() => CNS11643.fixed(), 150);
     }
 
-    function flipCard(cardElement) {
-      if (cardElement.querySelector('.example-box.expanded')) return;
-      cardElement.classList.toggle('is-flipped');
+    function createCardHTML(item) {
+      return `
+        <div class="col card-container">
+          <div class="word-card" id="card-${item.id}" onclick="this.classList.toggle('is-flipped')">
+            <div class="card-front">
+              <div class="d-flex align-items-center">
+                <button class="btn btn-primary btn-sm me-2" onclick="event.stopPropagation(); startSlideshow('${item.id}')">▶</button>
+                <span class="word-title">${item.word}</span>
+              </div>
+              <div class="ipa-text">${item.ipa || ''}</div>
+              <div class="example-box" onclick="toggleZoom(this, event)">
+                <small>例句：</small><br>${item.example || ''}
+              </div>
+            </div>
+            <div class="card-back">
+              <div class="p-3"><strong>解釋：</strong><p>${item.meaning || ''}</p></div>
+            </div>
+          </div>
+        </div>`;
     }
 
-    function toggleExampleExpansion(element, event) {
-      event.stopPropagation();
-      if (element.classList.contains('expanded')) {
-        element.classList.remove('expanded');
-      } else {
-        document.querySelectorAll('.example-box.expanded').forEach(box => box.classList.remove('expanded'));
-        element.classList.add('expanded');
-      }
+    function toggleZoom(el, e) {
+      e.stopPropagation();
+      el.classList.toggle('expanded');
     }
 
-    function playSingle(url, label) {
-      const p = document.getElementById('global-audio');
-      document.getElementById('current-word').innerText = label;
-      p.src = url.trim().replace("dl=0", "raw=1");
-      return p.play();
-    }
-
-    function stopSequence() { 
-      isAutoPlaying = false; 
-      isCrossPageMode = false;
-      document.getElementById('global-audio').pause(); 
-      document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-highlight'));
-    }
-
-    function jumpToAndPlay(id) {
-      const start = (currentPage - 1) * itemsPerPage;
-      playlist = filteredData.slice(start, start + itemsPerPage).filter(i => i.wordAudio || i.exampleAudio);
-      playlistIdx = playlist.findIndex(i => String(i.id) === String(id));
-      if(playlistIdx !== -1) { isAutoPlaying = true; startSeq(playlist[playlistIdx]); }
-    }
-
-    function startSeq(item) {
-      if(!isAutoPlaying) return;
+    // --- 投影片播放邏輯 ---
+    function startSlideshow(id) {
+      isAutoPlaying = true;
+      document.getElementById('slideshow-overlay').style.display = 'flex';
       document.getElementById('player-container').style.display = 'block';
-      document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-highlight'));
-
-      const card = document.getElementById('card-' + item.id);
-      if(card) { 
-        card.classList.add('playing-highlight'); 
-        card.scrollIntoView({behavior:'smooth', block:'center'}); 
-      }
       
-      const audio = document.getElementById('global-audio');
-      if(item.wordAudio && item.wordAudio !== "null") {
-        playSingle(item.wordAudio, "📢 " + item.word);
+      const startIdx = filteredData.findIndex(i => String(i.id) === String(id));
+      playlist = filteredData;
+      playlistIdx = startIdx;
+      showCurrentSlide();
+    }
+
+    function showCurrentSlide() {
+      if (!isAutoPlaying) return;
+      const item = playlist[playlistIdx];
+      const slideContent = document.getElementById('slide-content');
+      
+      // 動畫切換
+      slideContent.classList.remove('active');
+      
+      setTimeout(() => {
+        slideContent.innerHTML = createCardHTML(item);
+        slideContent.classList.add('active');
+        
+        // 播放音檔
+        const audio = document.getElementById('global-audio');
+        document.getElementById('current-word').innerText = `播放中：${item.word}`;
+        audio.src = item.wordAudio.replace("dl=0", "raw=1");
+        audio.play();
+        
         audio.onended = () => {
-          if(item.exampleAudio && item.exampleAudio !== "null") {
-            setTimeout(() => { if(isAutoPlaying) playSingle(item.exampleAudio, "📖 例句").then(() => audio.onended = nextSeq); }, 800);
-          } else { nextSeq(); }
+          if (item.exampleAudio) {
+            setTimeout(() => {
+              audio.src = item.exampleAudio.replace("dl=0", "raw=1");
+              audio.play();
+              audio.onended = nextSlide;
+            }, 800);
+          } else { nextSlide(); }
         };
-      } else if(item.exampleAudio) {
-        playSingle(item.exampleAudio, "📖 例句"); 
-        audio.onended = nextSeq;
-      } else { nextSeq(); }
+      }, 300);
     }
 
-    function nextSeq() {
-      if(!isAutoPlaying) return;
+    function nextSlide() {
       playlistIdx++;
-      if(playlistIdx < playlist.length) {
-        setTimeout(() => startSeq(playlist[playlistIdx]), 1200);
-      } else if(isCrossPageMode) {
-        const total = Math.ceil(filteredData.length / itemsPerPage);
-        if (currentPage < total) {
-          changePage(1);
-          setTimeout(() => {
-            const start = (currentPage - 1) * itemsPerPage;
-            playlist = filteredData.slice(start, start + itemsPerPage).filter(i => i.wordAudio || i.exampleAudio);
-            playlistIdx = 0;
-            if(playlist.length > 0) startSeq(playlist[0]); else stopSequence();
-          }, 1500);
-        } else { stopSequence(); }
-      } else { stopSequence(); }
-    }
-
-    function playAllOnPage() { isCrossPageMode = false; isAutoPlaying = true; jumpToAndPlay(filteredData[(currentPage-1)*10].id); }
-    function playEverything() { isCrossPageMode = true; isAutoPlaying = true; jumpToAndPlay(filteredData[(currentPage-1)*10].id); }
-    
-    function filterByCategory(cat) { 
-      stopSequence(); 
-      currentPage = 1; 
-      localStorage.setItem(`last_cat_${currentSheet}`, cat); // 記憶分類
-      applyFilter(cat); 
-      render(); 
-    }
-    
-    function changePage(s) { 
-      const total = Math.ceil(filteredData.length / itemsPerPage);
-      const nextP = currentPage + s;
-      if (nextP >= 1 && nextP <= total) {
-        currentPage = nextP; 
-        render(); 
-        window.scrollTo(0,0); 
+      if (playlistIdx < playlist.length) {
+        // 如果跨過 10 張，自動同步更新背景頁碼
+        if (playlistIdx % itemsPerPage === 0) changePage(1);
+        setTimeout(showCurrentSlide, 1000);
+      } else {
+        stopSequence();
       }
     }
-    
-    function jumpToPage(v) { 
-      const p = parseInt(v); 
-      const total = Math.ceil(filteredData.length / itemsPerPage);
-      if (p >= 1 && p <= total) { 
-        currentPage = p; 
-        render(); 
-      } 
+
+    function stopSequence() {
+      isAutoPlaying = false;
+      document.getElementById('slideshow-overlay').style.display = 'none';
+      document.getElementById('player-container').style.display = 'none';
+      document.getElementById('global-audio').pause();
     }
-    
-    function setupSheetButtons(names) { 
+
+    function playAllOnPage() {
+      const startIdx = (currentPage - 1) * itemsPerPage;
+      startSlideshow(filteredData[startIdx].id);
+    }
+
+    function playEverything() {
+      isCrossPageMode = true;
+      playAllOnPage();
+    }
+
+    function switchSheet(name) {
+      currentSheet = name;
+      localStorage.setItem('last_sheet', name);
+      loadData();
+    }
+
+    function setupSheetButtons(names) {
       document.getElementById('sheet-buttons').innerHTML = names.map(n => 
         `<button class="btn btn-sm ${n===currentSheet?'btn-primary':'btn-outline-primary'}" onclick="switchSheet('${n}')">${n}</button>`
-      ).join(''); 
+      ).join('');
     }
-    
-    function switchSheet(name) { 
-      currentSheet = name; 
-      localStorage.setItem('last_sheet', name); // 記憶試算表
-      loadData(); 
+
+    function filterByCategory(cat) {
+      localStorage.setItem(`last_cat_${currentSheet}`, cat);
+      applyFilter(cat);
+      currentPage = 1;
+      render();
     }
-    
-    function updateCategoryUI(cats) { 
-      document.getElementById('categorySelect').innerHTML = '<option value="all">全部類別</option><option value="my_stars">⭐ 我的收藏</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join(''); 
-    }
-    
-    function getStarredList() { return JSON.parse(localStorage.getItem('starred_words') || "[]"); }
-    
-    function toggleStar(id, e) { 
-      e.stopPropagation(); 
-      let list = getStarredList(); 
-      const i = list.indexOf(String(id)); 
-      if(i > -1) list.splice(i, 1); else list.push(String(id)); 
-      localStorage.setItem('starred_words', JSON.stringify(list)); 
-      render(); 
+
+    function changePage(s) {
+      currentPage += s;
+      render();
     }
 
     window.onload = init;
