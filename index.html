@@ -1,40 +1,35 @@
+這是一個非常直覺的調整！我修改了點擊邏輯，現在無論是「點擊卡片左側的播放按鈕」還是「點擊卡片本身（如果不需要翻面時）」，系統都會根據你最後選擇的播放邏輯（播本頁或播全部）自動續播。
+
+### 核心更動：
+
+1. **記憶播放範圍**：系統會記得你最後按的是「播本頁」還是「播全部」。如果你沒按過，預設為「播本頁」。
+2. **按鈕觸發續播**：點擊卡片上的圓形播放按鈕時，會從該單字開始，並依照目前的「範圍設定」一路播下去。
+3. **翻面邏輯優化**：點擊卡片正面（非按鈕區）會翻面看解釋，但如果您是點擊**播放按鈕**，則會直接觸發續播功能，不會翻面。
+
+### 完整的 HTML 檔案
+
+```html
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證系統 - 置頂優化版</title>
+  <title>台語認證系統 - 點擊續播版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
     body { font-family: 'Noto Sans TC', sans-serif; background-color: #f4f7f9; padding: 10px; padding-bottom: 120px; }
 
-    /* 控制面板 */
     .compact-panel { background: white; padding: 10px 15px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
     .panel-item { flex: 1; min-width: 120px; }
     
-    /* 播放遮罩 */
     #slideshow-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.96); z-index: 3000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(12px); cursor: pointer; }
     #slide-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: default; }
     
-    /* 卡片與滾動定位優化 */
-    .col { 
-      scroll-margin-top: 85px; /* 確保自動滾動時，上方留下一點空白 */
-    }
-
-    .word-card { 
-      width: 100%; 
-      min-height: 280px; 
-      transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1); 
-      transform-style: preserve-3d; 
-      position: relative; 
-      background: white; 
-      border-radius: 16px; 
-      border: 1px solid #e0e6ed; 
-      cursor: pointer; 
-    }
+    .col { scroll-margin-top: 85px; }
+    .word-card { width: 100%; min-height: 280px; transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1); transform-style: preserve-3d; position: relative; background: white; border-radius: 16px; border: 1px solid #e0e6ed; cursor: pointer; }
     .word-card.is-flipped { transform: rotateY(180deg); }
     .playing-height { min-height: 420px !important; }
 
@@ -46,9 +41,7 @@
     .item-id-badge { color: #adb5bd; font-size: 0.9rem; font-weight: bold; }
     .star-btn { font-size: 1.8rem; color: #ffc107; cursor: pointer; transition: 0.2s; }
 
-    .example-box { 
-      background: #f8f9fa; padding: 15px; border-left: 5px solid #3498db; font-size: 1.5rem; line-height: 1.6; color: #2c3e50; border-radius: 0 8px 8px 0; margin-top: 15px; transition: all 0.3s ease; overflow-y: auto; flex-grow: 1; position: relative; cursor: zoom-in;
-    }
+    .example-box { background: #f8f9fa; padding: 15px; border-left: 5px solid #3498db; font-size: 1.5rem; line-height: 1.6; color: #2c3e50; border-radius: 0 8px 8px 0; margin-top: 15px; transition: all 0.3s ease; overflow-y: auto; flex-grow: 1; position: relative; cursor: zoom-in; }
     .example-expanded { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 400; margin-top: 0; border-radius: 16px; background: #ffffff; padding: 30px; cursor: zoom-out; }
 
     .now-playing-border { outline: 4px solid #007bff !important; outline-offset: 4px; box-shadow: 0 10px 30px rgba(0,123,255,0.3) !important; }
@@ -84,8 +77,8 @@
         <button class="btn btn-outline-primary" onclick="changePage(1)">▶</button>
     </div>
     <div class="d-flex gap-1">
-      <button class="btn btn-success px-3 rounded-pill" onclick="playCurrentPage()">播本頁</button>
-      <button class="btn btn-warning px-3 rounded-pill text-white" onclick="playAllContinuous()">播全部</button>
+      <button id="btn-play-page" class="btn btn-success px-3 rounded-pill" onclick="setModeAndPlay('page')">播本頁</button>
+      <button id="btn-play-all" class="btn btn-warning px-3 rounded-pill text-white" onclick="setModeAndPlay('all')">播全部</button>
     </div>
   </div>
 
@@ -105,7 +98,8 @@
   <script>
     const API_URL = "https://script.google.com/a/macros/guo.kh.edu.tw/s/AKfycbw_OHgjTJqP6OvnIYZl2L9XkkH_DacnLfcQHipsGX0EQg4OsU7dxo6LuH9862I-nSo_1g/exec";
     let allData = [], filteredData = [], currentPage = 1, itemsPerPage = 10, currentSheet = "";
-    let currentMode = "none", playlistIdx = 0, isPlaying = false;
+    let currentMode = localStorage.getItem('pref_play_mode') || "page"; 
+    let playlistIdx = 0, isPlaying = false;
     let starredList = JSON.parse(localStorage.getItem('starred_words') || "[]");
 
     async function init() {
@@ -182,7 +176,7 @@
             </div>
             <div class="card-front">
               <div class="d-flex align-items-center mb-1">
-                <button class="btn btn-primary rounded-circle me-4" style="width:50px; height:50px;" onclick="event.stopPropagation(); playSingleSlide('${item.id}')">
+                <button class="btn btn-primary rounded-circle me-4" style="width:50px; height:50px;" onclick="event.stopPropagation(); startPlayback('${item.id}')">
                    <i class="bi bi-play-fill fs-4"></i>
                 </button>
                 <div class="word-title">${item.word}${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" onclick="event.stopPropagation();"><i class="bi bi-link-45deg"></i></a>` : ''}</div>
@@ -196,13 +190,20 @@
     }
 
     function handleCardClick(e, el) {
-      if (e.target.closest('.example-box') || e.target.closest('.card-top-controls')) return;
+      if (e.target.closest('.example-box') || e.target.closest('.card-top-controls') || e.target.closest('.btn-primary')) return;
       el.classList.toggle('is-flipped');
     }
 
     function handleExampleToggle(e, el) {
       e.stopPropagation();
       el.classList.toggle('example-expanded');
+    }
+
+    function setModeAndPlay(mode) {
+      currentMode = mode;
+      localStorage.setItem('pref_play_mode', mode);
+      const firstIdOnPage = filteredData[(currentPage - 1) * itemsPerPage].id;
+      startPlayback(firstIdOnPage);
     }
 
     function jumpToPage(val, autoScroll = true) {
@@ -241,9 +242,6 @@
     }
 
     function toggleFlip(el) { el.querySelector('.word-card').classList.toggle('is-flipped'); }
-    function playSingleSlide(id) { currentMode = "single"; startPlayback(id); }
-    function playCurrentPage() { currentMode = "page"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
-    function playAllContinuous() { currentMode = "all"; startPlayback(filteredData[(currentPage-1)*itemsPerPage].id); }
     
     function startPlayback(id) { 
       isPlaying = true; 
@@ -267,7 +265,6 @@
         setTimeout(() => {
             const elPos = document.getElementById(`card-pos-${item.id}`);
             if (elPos) {
-                // 優化：使用 block: 'start' 對齊畫面最上方
                 elPos.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 const card = elPos.querySelector('.word-card');
                 card.classList.add('now-playing-border', 'playing-height');
@@ -294,7 +291,7 @@
       if (!isPlaying) return; 
       const isPageEnd = (currentMode === "page" && playlistIdx >= (currentPage * itemsPerPage) - 1);
       const isAllEnd = (playlistIdx >= filteredData.length - 1);
-      if (currentMode === "single" || isPageEnd || isAllEnd) { stopSequence(); return; } 
+      if (isPageEnd || isAllEnd) { stopSequence(); return; } 
       manualNext(); 
     }
     function manualNext() { if (playlistIdx < filteredData.length - 1) { playlistIdx++; showSlide(); } else stopSequence(); }
@@ -316,7 +313,6 @@
       setTimeout(() => {
         const targetEl = document.getElementById(`card-pos-${lastPlayedItem.id}`);
         if (targetEl) {
-          // 優化：停止時同樣置頂，讓黃框視覺一致
           targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
           const cardInner = targetEl.querySelector('.word-card');
           if (cardInner) {
@@ -332,3 +328,5 @@
   </script>
 </body>
 </html>
+
+```
