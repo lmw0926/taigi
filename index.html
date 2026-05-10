@@ -4,7 +4,7 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證練習系統 - 修正強化版</title>
+  <title>台語認證練習系統 - 滿版強化版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
@@ -14,7 +14,6 @@
     /* --- 卡片容器 --- */
     .card-container { perspective: 1000px; margin-bottom: 20px; }
     
-    /* 修正：增加 transition 確保加高過程平滑 */
     .word-card { 
       width: 100%; 
       min-height: 280px; 
@@ -24,70 +23,70 @@
       cursor: pointer; 
     }
 
-    /* 修正：加高功能，確保優先權高於 min-height: 280px */
-    .word-card.expanded { min-height: 450px !important; }
+    /* 播放例句時：強制加高至 500px */
+    .word-card.expanded { min-height: 500px !important; }
     .word-card.is-flipped { transform: rotateY(180deg); }
 
     .card-front, .card-back { 
       position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-      backface-visibility: hidden; border-radius: 12px; padding: 20px; 
+      backface-visibility: hidden; border-radius: 12px; 
       border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.08); 
       display: flex; flex-direction: column; background: white; overflow: hidden;
     }
 
-    /* 修正：設定 relative 以便讓例句框能夠 absolute 覆蓋 */
-    .card-front { border-left: 6px solid #007bff; z-index: 2; position: relative; }
-    .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 6px solid #28a745; }
+    .card-front { border-left: 6px solid #007bff; z-index: 2; position: relative; padding: 20px; }
+    .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 6px solid #28a745; padding: 20px; }
     
     .word-card.starred-border .card-front { border-left-color: #f1c40f; background-color: #fffdf0; }
     .playing-now { box-shadow: 0 0 25px #007bff !important; border: 2px solid #007bff !important; }
 
-    /* --- 例句區塊 --- */
+    /* --- 例句區塊：關鍵在於 flex 佈局 --- */
     .example-box { 
       background: #f1f3f5; padding: 12px; border-left: 4px solid #3498db; 
       font-size: 1.5rem; color: #34495e; border-radius: 0 4px 4px 0; 
-      flex-grow: 1; transition: all 0.3s ease;
-      overflow-y: auto; line-height: 1.6; text-align: left;
+      margin-top: 10px;
+      /* 讓例句框填滿卡片剩餘高度 */
+      flex: 1 1 auto; 
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto; 
+      transition: all 0.3s ease;
       cursor: zoom-in;
     }
 
-    /* 修正：例句放大至整張卡片正面的 CSS */
+    /* 修正：例句點擊後放大至覆蓋整面 */
     .example-box.example-active {
       position: absolute !important;
-      top: 0 !important;
-      left: 0 !important;
+      top: 0 !important; left: 0 !important;
       width: 100% !important;
       height: 100% !important;
-      z-index: 100 !important; /* 高於所有元件 */
+      z-index: 999 !important; /* 確保在最上層 */
       background-color: #ffffff !important;
-      padding: 25px !important;
+      padding: 30px !important;
       font-size: 2.2rem !important;
       border-left: 10px solid #e67e22 !important;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
       cursor: zoom-out;
+      justify-content: center;
     }
 
     .example-label { font-size: 0.85rem; color: #7f8c8d; font-weight: bold; margin-bottom: 4px; display: block; }
-    .example-active .example-label { font-size: 1.1rem; color: #e67e22; margin-bottom: 10px; }
+    .example-active .example-label { font-size: 1.2rem; color: #e67e22; margin-bottom: 15px; }
 
-    /* --- 元件樣式 --- */
+    /* --- 其他元件 --- */
     .word-header { display: flex; align-items: center; margin-bottom: 10px; width: 100%; }
     .word-title { font-size: 2rem; color: #2c3e50; font-weight: bold; }
     .word-no { font-size: 0.85rem; color: #95a5a6; margin-left: auto; }
     .dict-link { text-decoration: none; font-size: 1.1rem; margin-left: 10px; color: #198754; }
-    .ipa-text { color: #e67e22; font-family: 'Segoe UI', Arial, sans-serif; font-size: 1.5rem; margin-bottom: 8px; margin-left: 47px; }
+    .ipa-text { color: #e67e22; font-size: 1.5rem; margin-left: 47px; margin-bottom: 8px; }
     .badge-group { margin-bottom: 12px; margin-left: 47px; display: flex; gap: 5px; }
-    .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; }
-    .bg-cat { background-color: #2ecc71; color: white; }
+    .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; background-color: #2ecc71; color: white; }
 
-    .play-icon-btn { background: #007bff; color: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: none; margin-right: 12px; flex-shrink: 0; }
+    .play-icon-btn { background: #007bff; color: white; border-radius: 50%; width: 36px; height: 36px; border: none; margin-right: 12px; flex-shrink: 0; }
     .play-btn-sm { background: #3498db; color: white; border: none; border-radius: 4px; font-size: 0.7rem; padding: 2px 6px; margin-left: 8px; }
-    .star-btn { background: none; border: none; font-size: 1.6rem; color: #ccc; cursor: pointer; padding: 0 5px; }
+    .star-btn { background: none; border: none; font-size: 1.6rem; color: #ccc; padding: 0 5px; }
     .star-btn.active { color: #f1c40f; }
     
-    #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; box-shadow: 0 -2px 15px rgba(0,0,0,0.1); padding: 15px; display: none; z-index: 1000; }
+    #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: white; box-shadow: 0 -2px 15px rgba(0,0,0,0.1); padding: 15px; display: none; z-index: 1001; }
     .player-flex { display: flex; align-items: center; gap: 15px; max-width: 800px; margin: 0 auto; }
     #current-word { font-weight: bold; font-size: 1rem; color: #007bff; min-width: 100px; }
     audio { flex-grow: 1; height: 40px; }
@@ -98,14 +97,14 @@
   <div id="sheet-buttons" class="d-flex justify-content-center flex-wrap gap-2 mb-3"></div>
   
   <div class="d-grid gap-2 mb-3">
-    <button id="playAllBtn" class="btn btn-success fw-bold" onclick="playAllOnPage()">🎧 播放本頁 (播完即止)</button>
-    <button id="playEverythingBtn" class="btn btn-warning fw-bold" onclick="playEverything()">🚀 全部播放 (自動換頁)</button>
+    <button class="btn btn-success fw-bold" onclick="playAllOnPage()">🎧 播放本頁 (播完即止)</button>
+    <button class="btn btn-warning fw-bold" onclick="playEverything()">🚀 全部播放 (自動換頁)</button>
   </div>
 
   <div class="row mb-3">
     <div class="col-12">
       <div class="input-group">
-        <label class="input-group-text" for="categorySelect">篩選分類</label>
+        <label class="input-group-text">篩選分類</label>
         <select class="form-select" id="categorySelect" onchange="filterByCategory(this.value)">
           <option value="all">全部類別</option>
           <option value="my_stars">⭐ 我的收藏</option>
@@ -119,7 +118,7 @@
   <div id="pagination" class="d-flex justify-content-between align-items-center mt-4 mb-5">
     <button id="prevBtn" class="btn btn-outline-primary" onclick="changePage(-1)">上一頁</button>
     <div class="d-flex align-items-center gap-2">
-      <input type="number" id="pageInput" class="form-control text-center" style="width: 70px;" onchange="jumpToPage(this.value)" min="1">
+      <input type="number" id="pageInput" class="form-control text-center" style="width: 70px;" onchange="jumpToPage(this.value)">
       <span id="totalPages">/ 頁</span>
     </div>
     <button id="nextBtn" class="btn btn-outline-primary" onclick="changePage(1)">下一頁</button>
@@ -168,9 +167,7 @@
       const savedCat = localStorage.getItem(`last_cat_${currentSheet}`) || "all";
       document.getElementById('categorySelect').value = savedCat;
       applyFilter(savedCat);
-      const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
-      const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
-      currentPage = savedPage ? Math.min(parseInt(savedPage), totalPages) : 1;
+      currentPage = 1;
       render();
     }
 
@@ -206,14 +203,14 @@
                   <span class="word-no">#${item.id}</span>
                 </div>
                 <div class="ipa-text">${item.ipa || ''}</div>
-                <div class="badge-group"><span class="badge bg-cat">${item.cat || '未分類'}</span></div>
+                <div class="badge-group"><span class="badge">${item.cat || '未分類'}</span></div>
                 ${hasEx ? `
                   <div class="example-box" onclick="toggleExampleZoom(this, event)">
                     <span class="example-label">
                       💡 例句 (點擊放大)
                       <button class="play-btn-sm" onclick="event.stopPropagation(); playOnlyExample('${item.exampleAudio}', '${item.word}', '${item.id}')">🔊</button>
                     </span>
-                    ${item.example}
+                    <div class="example-content">${item.example}</div>
                   </div>` : ''}
               </div>
               <div class="card-back">
@@ -226,12 +223,11 @@
       
       document.getElementById('pageInput').value = currentPage;
       document.getElementById('totalPages').innerText = `/ ${Math.ceil(filteredData.length / itemsPerPage) || 1} 頁`;
-      if (window.CNS11643) setTimeout(() => CNS11643.fixed(), 100);
     }
 
-    // 修正：例句放大邏輯 (切換 example-active 類別)
+    // 切換例句放大
     function toggleExampleZoom(el, event) {
-      event.stopPropagation(); // 強力防止觸發卡片翻轉
+      event.stopPropagation(); 
       const isActive = el.classList.contains('example-active');
       document.querySelectorAll('.example-box').forEach(b => b.classList.remove('example-active'));
       if (!isActive) el.classList.add('example-active');
@@ -248,7 +244,7 @@
       isAutoPlaying = false; 
       isCrossPageMode = false;
       document.getElementById('global-audio').pause(); 
-      document.querySelectorAll('.word-card').forEach(c => { c.classList.remove('playing-now'); c.classList.remove('expanded'); });
+      document.querySelectorAll('.word-card').forEach(c => { c.classList.remove('playing-now', 'expanded'); });
       document.querySelectorAll('.example-box').forEach(b => b.classList.remove('example-active'));
     }
 
@@ -263,12 +259,13 @@
       if(!isAutoPlaying) return;
       document.getElementById('player-container').style.display = 'block';
       
-      // 清除之前狀態
-      document.querySelectorAll('.word-card').forEach(c => { c.classList.remove('playing-now'); c.classList.remove('expanded'); });
-      document.querySelectorAll('.example-box').forEach(b => b.classList.remove('example-active'));
-
       const card = document.querySelector(`[data-id="${item.id}"]`);
-      if(card) { card.classList.add('playing-now'); card.scrollIntoView({behavior:'smooth', block:'center'}); }
+      document.querySelectorAll('.word-card').forEach(c => { c.classList.remove('playing-now', 'expanded'); });
+      
+      if(card) { 
+        card.classList.add('playing-now'); 
+        card.scrollIntoView({behavior:'smooth', block:'center'}); 
+      }
       
       const audio = document.getElementById('global-audio');
       
@@ -276,7 +273,8 @@
         playSingle(item.wordAudio, "📢 " + item.word);
         audio.onended = () => {
           if(item.exampleAudio && item.exampleAudio !== "null") {
-            if(card) card.classList.add('expanded'); // 修正：播放例句前加高卡片
+            // 播放例句前加高卡片
+            if(card) card.classList.add('expanded');
             setTimeout(() => { 
               if(isAutoPlaying) { 
                 playSingle(item.exampleAudio, "📖 例句"); 
@@ -320,10 +318,11 @@
       document.getElementById('global-audio').onended = () => { if(card) card.classList.remove('expanded'); };
     }
 
-    function filterByCategory(cat) { stopSequence(); localStorage.setItem(`last_cat_${currentSheet}`, cat); currentPage = 1; applyFilter(cat); render(); }
+    function filterByCategory(cat) { stopSequence(); localStorage.setItem(`last_cat_${currentSheet}`, cat); processAndRender(); }
     function changePage(s) { currentPage += s; render(); window.scrollTo(0,0); }
+    function jumpToPage(v) { const p = parseInt(v); if (p >= 1) { currentPage = p; render(); } }
     function setupSheetButtons(names) { document.getElementById('sheet-buttons').innerHTML = names.map(n => `<button class="btn btn-sm ${n===currentSheet?'btn-primary':'btn-outline-primary'}" onclick="switchSheet('${n}')">${n}</button>`).join(''); }
-    function switchSheet(name) { currentSheet = name; loadData(); }
+    function switchSheet(name) { currentSheet = name; localStorage.setItem('last_sheet', name); loadData(); }
     function updateCategoryUI(cats) { document.getElementById('categorySelect').innerHTML = '<option value="all">全部類別</option><option value="my_stars">⭐ 我的收藏</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join(''); }
     function getStarredList() { return JSON.parse(localStorage.getItem('starred_words') || "[]"); }
     function toggleStar(id, e) { e.stopPropagation(); let list = getStarredList(); const i = list.indexOf(String(id)); if(i > -1) list.splice(i, 1); else list.push(String(id)); localStorage.setItem('starred_words', JSON.stringify(list)); render(); }
