@@ -1,343 +1,356 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>語詞例句學習卡 - 進度記憶修正版</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
-    body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8f9fa; padding: 15px; padding-bottom: 120px !important; }
-    .card-container { perspective: 1000px; margin-bottom: 15px; min-height: 250px; }
-    .word-card { width: 100%; min-height: 250px; transition: transform 0.6s, box-shadow 0.3s; transform-style: preserve-3d; position: relative; cursor: pointer; background-color: white; border-radius: 12px; }
-    .word-card.is-flipped { transform: rotateY(180deg); }
-    .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 12px; padding: 15px; border: 1px solid #ddd; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
-    .card-front { border-left: 5px solid #007bff; }
-    .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 5px solid #28a745; }
-    .word-card.starred-border { background-color: #fffdf0 !important; }
-    .word-card.starred-border .card-front { border-left: 5px solid #f1c40f; }
-    .playing-now { box-shadow: 0 0 20px #007bff !important; border: 2px solid #007bff !important; }
-    .word-header { display: flex; align-items: center; justify-content: flex-start; margin-bottom: 8px; }
-    .word-title { font-size: 1.4rem; color: #2c3e50; font-weight: bold; }
-    .word-no { font-size: 0.8rem; color: #95a5a6; margin-left: auto; }
-    .ipa-text { color: #e67e22; font-family: 'Segoe UI', Arial, sans-serif; font-size: 1.1rem; margin-bottom: 8px; }
-    .badge-group { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 5px; }
-    .badge { padding: 3px 8px; border-radius: 20px; font-size: 0.75rem; color: white; }
-    .bg-cat { background-color: #2ecc71; }
-    .example-box { background: #f1f3f5; padding: 10px; border-left: 4px solid #3498db; font-size: 0.95rem; color: #34495e; border-radius: 0 4px 4px 0; flex-grow: 1; overflow-y: auto; line-height: 1.6; text-align: left; }
-    .example-label { font-size: 0.85rem; color: #7f8c8d; font-weight: bold; display: inline-flex; align-items: center; }
-    .play-btn-sm { background: #3498db; color: white; border: none; border-radius: 4px; font-size: 0.7rem; padding: 1px 6px; margin: 0 6px; cursor: pointer; vertical-align: middle; }
-    .play-icon-btn { background: #007bff; color: white; border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; border: none; font-size: 1rem; margin-right: 12px; flex-shrink: 0; }
-    .star-btn { background: none; border: none; font-size: 1.5rem; color: #ccc; cursor: pointer; margin-left: 10px; }
-    .star-btn.active { color: #f1c40f; }
-    #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: #ffffff; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); padding: 10px 15px; display: none; z-index: 1000; border-top: 1px solid #dee2e6; }
-    .player-flex { display: flex; align-items: center; gap: 10px; }
-    #current-word { font-weight: bold; font-size: 0.9rem; min-width: 120px; color: #007bff; }
-    audio { flex-grow: 1; height: 35px; }
-  </style>
+  <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>語詞例句學習卡 - 進度記憶修正版</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+    body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8f9fa; padding: 15px; padding-bottom: 120px !important; }
+    .card-container { perspective: 1000px; margin-bottom: 15px; min-height: 250px; }
+    .word-card { width: 100%; min-height: 250px; transition: transform 0.6s, box-shadow 0.3s; transform-style: preserve-3d; position: relative; cursor: pointer; background-color: white; border-radius: 12px; }
+    .word-card.is-flipped { transform: rotateY(180deg); }
+    .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 12px; padding: 15px; border: 1px solid #ddd; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+    .card-front { border-left: 5px solid #007bff; }
+    .card-back { transform: rotateY(180deg); background: #f0f7ff; border-left: 5px solid #28a745; }
+    .word-card.starred-border { background-color: #fffdf0 !important; }
+    .word-card.starred-border .card-front { border-left: 5px solid #f1c40f; }
+    .playing-now { box-shadow: 0 0 20px #007bff !important; border: 2px solid #007bff !important; }
+    .word-header { display: flex; align-items: center; justify-content: flex-start; margin-bottom: 8px; }
+    .word-title { font-size: 1.4rem; color: #2c3e50; font-weight: bold; }
+    .word-no { font-size: 0.8rem; color: #95a5a6; margin-left: auto; }
+    .ipa-text { color: #e67e22; font-family: 'Segoe UI', Arial, sans-serif; font-size: 1.1rem; margin-bottom: 8px; }
+    .badge-group { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 5px; }
+    .badge { padding: 3px 8px; border-radius: 20px; font-size: 0.75rem; color: white; }
+    .bg-cat { background-color: #2ecc71; }
+    .example-box { background: #f1f3f5; padding: 10px; border-left: 4px solid #3498db; font-size: 0.95rem; color: #34495e; border-radius: 0 4px 4px 0; flex-grow: 1; overflow-y: auto; line-height: 1.6; text-align: left; }
+    .example-label { font-size: 0.85rem; color: #7f8c8d; font-weight: bold; display: inline-flex; align-items: center; }
+    .play-btn-sm { background: #3498db; color: white; border: none; border-radius: 4px; font-size: 0.7rem; padding: 1px 6px; margin: 0 6px; cursor: pointer; vertical-align: middle; }
+    .play-icon-btn { background: #007bff; color: white; border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; border: none; font-size: 1rem; margin-right: 12px; flex-shrink: 0; }
+    .star-btn { background: none; border: none; font-size: 1.5rem; color: #ccc; cursor: pointer; margin-left: 10px; }
+    .star-btn.active { color: #f1c40f; }
+    #player-container { position: fixed; bottom: 0; left: 0; width: 100%; background: #ffffff; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); padding: 10px 15px; display: none; z-index: 1000; border-top: 1px solid #dee2e6; }
+    .player-flex { display: flex; align-items: center; gap: 10px; }
+    #current-word { font-weight: bold; font-size: 0.9rem; min-width: 120px; color: #007bff; }
+    audio { flex-grow: 1; height: 35px; }
+  </style>
 </head>
 <body>
 
-  <div id="sheet-buttons" class="d-flex justify-content-center flex-wrap gap-2 mb-3"></div>
-  
-  <div class="d-grid gap-2 mb-3">
-    <button id="playAllBtn" class="btn btn-success fw-bold" onclick="playAllOnPage()">🎧 順序播放本頁全部 (語詞 + 例句)</button>
-  </div>
+  <div id="sheet-buttons" class="d-flex justify-content-center flex-wrap gap-2 mb-3"></div>
+  
+  <div class="d-grid gap-2 mb-3">
+    <button id="playAllBtn" class="btn btn-success fw-bold" onclick="playAllOnPage()">🎧 順序播放本頁全部 (語詞 + 例句)</button>
+  </div>
 
-  <div class="row mb-3">
-    <div class="col-12">
-      <div class="input-group">
-        <label class="input-group-text" for="categorySelect">篩選分類</label>
-        <select class="form-select" id="categorySelect" onchange="filterByCategory(this.value)">
-          <option value="all">全部類別</option>
-          <option value="my_stars">⭐ 我的收藏</option>
-        </select>
-      </div>
-    </div>
-  </div>
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="input-group">
+        <label class="input-group-text" for="categorySelect">篩選分類</label>
+        <select class="form-select" id="categorySelect" onchange="filterByCategory(this.value)">
+          <option value="all">全部類別</option>
+          <option value="my_stars">⭐ 我的收藏</option>
+        </select>
+      </div>
+    </div>
+  </div>
 
-  <div id="app" class="text-center">初始化中...</div>
+  <div id="app" class="text-center">初始化中...</div>
 
-  <div id="pagination" class="d-flex justify-content-between align-items-center mt-3 mb-4">
-    <button id="prevBtn" class="btn btn-outline-primary" onclick="changePage(-1)">上一頁</button>
-    <div class="d-flex align-items-center gap-2">
-      <input type="number" id="pageInput" class="form-control text-center" style="width: 70px;" onchange="jumpToPage(this.value)" min="1">
-      <span id="totalPages">/ 頁</span>
-    </div>
-    <button id="nextBtn" class="btn btn-outline-primary" onclick="changePage(1)">下一頁</button>
-  </div>
+  <div id="pagination" class="d-flex justify-content-between align-items-center mt-3 mb-4">
+    <button id="prevBtn" class="btn btn-outline-primary" onclick="changePage(-1)">上一頁</button>
+    <div class="d-flex align-items-center gap-2">
+      <input type="number" id="pageInput" class="form-control text-center" style="width: 70px;" onchange="jumpToPage(this.value)" min="1">
+      <span id="totalPages">/ 頁</span>
+    </div>
+    <button id="nextBtn" class="btn btn-outline-primary" onclick="changePage(1)">下一頁</button>
+  </div>
 
-  <div id="player-container">
-    <div class="player-flex">
-      <div id="current-word">尚未播放</div>
-      <audio id="global-audio" controls></audio>
-      <button class="btn btn-sm btn-outline-danger" onclick="stopSequence()">停止</button>
-    </div>
-  </div>
+  <div id="player-container">
+    <div class="player-flex">
+      <div id="current-word">尚未播放</div>
+      <audio id="global-audio" controls></audio>
+      <button class="btn btn-sm btn-outline-danger" onclick="stopSequence()">停止</button>
+    </div>
+  </div>
 
-  <script>
-    let allData = [];
-    let filteredData = [];
-    let currentPage = 1;
-    const itemsPerPage = 10;
-    const API_URL = "https://script.google.com/a/macros/guo.kh.edu.tw/s/AKfycbw_OHgjTJqP6OvnIYZl2L9XkkH_DacnLfcQHipsGX0EQg4OsU7dxo6LuH9862I-nSo_1g/exec"; 
-    let currentSheet = "";
-    let playlist = [];
-    let playlistIdx = 0;
-    let isAutoPlaying = false; 
+  <script>
+    let allData = [];
+    let filteredData = [];
+    let currentPage = 1;
+    const itemsPerPage = 10;
+    const API_URL = "https://script.google.com/a/macros/guo.kh.edu.tw/s/AKfycbw_OHgjTJqP6OvnIYZl2L9XkkH_DacnLfcQHipsGX0EQg4OsU7dxo6LuH9862I-nSo_1g/exec"; 
+    let currentSheet = "";
+    let playlist = [];
+    let playlistIdx = 0;
+    let isAutoPlaying = false; 
 
-    // --- 初始化與記憶功能 ---
-    async function init() {
-      const savedSheet = localStorage.getItem('last_sheet');
-      const cachedSheets = localStorage.getItem('cache_sheet_names');
+    // --- 初始化與記憶功能 ---
+    async function init() {
+      const savedSheet = localStorage.getItem('last_sheet');
+      const cachedSheets = localStorage.getItem('cache_sheet_names');
 
-      if (cachedSheets) {
-        const names = JSON.parse(cachedSheets);
-        currentSheet = (savedSheet && names.includes(savedSheet)) ? savedSheet : names[0];
-        const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
-        currentPage = savedPage ? parseInt(savedPage) : 1;
-        setupSheetButtons(names);
-        loadData();
-      }
+      if (cachedSheets) {
+        const names = JSON.parse(cachedSheets);
+        currentSheet = (savedSheet && names.includes(savedSheet)) ? savedSheet : names[0];
+        const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
+        currentPage = savedPage ? parseInt(savedPage) : 1;
+        setupSheetButtons(names);
+        loadData();
+      }
 
-      try {
-        const response = await fetch(`${API_URL}?action=getSheets`);
-        const names = await response.json();
-        if (names && names.length > 0) {
-          localStorage.setItem('cache_sheet_names', JSON.stringify(names));
-          if (!cachedSheets) {
-            currentSheet = (savedSheet && names.includes(savedSheet)) ? savedSheet : names[0];
-            const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
-            currentPage = savedPage ? parseInt(savedPage) : 1;
-            loadData();
-          }
-          setupSheetButtons(names);
-        }
-      } catch (err) {
-        if (!cachedSheets) document.getElementById('app').innerHTML = "連線失敗。";
-      }
-    }
+      try {
+        const response = await fetch(`${API_URL}?action=getSheets`);
+        const names = await response.json();
+        if (names && names.length > 0) {
+          localStorage.setItem('cache_sheet_names', JSON.stringify(names));
+          if (!cachedSheets) {
+            currentSheet = (savedSheet && names.includes(savedSheet)) ? savedSheet : names[0];
+            const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
+            currentPage = savedPage ? parseInt(savedPage) : 1;
+            loadData();
+          }
+          setupSheetButtons(names);
+        }
+      } catch (err) {
+        if (!cachedSheets) document.getElementById('app').innerHTML = "連線失敗。";
+      }
+    }
 
-    function setupSheetButtons(names) {
-      const btnContainer = document.getElementById('sheet-buttons');
-      btnContainer.innerHTML = '';
-      names.forEach((name) => {
-        const btn = document.createElement('button');
-        btn.innerText = name;
-        btn.className = (name === currentSheet) ? "btn btn-primary" : "btn btn-outline-primary";
-        btn.onclick = () => switchSheet(name);
-        btnContainer.appendChild(btn);
-      });
-    }
+    function setupSheetButtons(names) {
+      const btnContainer = document.getElementById('sheet-buttons');
+      btnContainer.innerHTML = '';
+      names.forEach((name) => {
+        const btn = document.createElement('button');
+        btn.innerText = name;
+        btn.className = (name === currentSheet) ? "btn btn-primary" : "btn btn-outline-primary";
+        btn.onclick = () => switchSheet(name);
+        btnContainer.appendChild(btn);
+      });
+    }
 
-    function switchSheet(name) {
-      if (currentSheet === name) return;
-      currentSheet = name;
-      localStorage.setItem('last_sheet', name); // 儲存頁籤
-      const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
-      currentPage = savedPage ? parseInt(savedPage) : 1;
-      setupSheetButtons(JSON.parse(localStorage.getItem('cache_sheet_names')));
-      loadData();
-    }
+    function switchSheet(name) {
+      if (currentSheet === name) return;
+      currentSheet = name;
+      localStorage.setItem('last_sheet', name); // 儲存頁籤
+      const savedPage = localStorage.getItem(`last_page_${currentSheet}`);
+      currentPage = savedPage ? parseInt(savedPage) : 1;
+      setupSheetButtons(JSON.parse(localStorage.getItem('cache_sheet_names')));
+      loadData();
+    }
 
-    async function loadData() {
-      const cacheKey = `cache_data_${currentSheet}`;
-      const cachedData = localStorage.getItem(cacheKey);
-      stopSequence();
-      if (cachedData) {
-        allData = JSON.parse(cachedData);
-        filteredData = allData;
-        render();
-      } else {
-        document.getElementById('app').innerHTML = `<div class="spinner-border text-primary"></div><p>載入中...</p>`;
-      }
-      try {
-        const [dataRes, catRes] = await Promise.all([
-          fetch(`${API_URL}?sheet=${currentSheet}`),
-          fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`).catch(() => null)
-        ]);
-        const newData = await dataRes.json();
-        if (JSON.stringify(newData) !== cachedData) {
-          allData = newData;
-          filteredData = allData;
-          localStorage.setItem(cacheKey, JSON.stringify(allData));
-          render();
-        }
-        if (catRes) {
-          const categories = await catRes.json();
-          updateCategoryUI(categories);
-        }
-      } catch (err) {
-        if (!cachedData) document.getElementById('app').innerHTML = "載入失敗。";
-      }
-    }
+    async function loadData() {
+      const cacheKey = `cache_data_${currentSheet}`;
+      const cachedData = localStorage.getItem(cacheKey);
+      stopSequence();
+      if (cachedData) {
+        allData = JSON.parse(cachedData);
+        filteredData = allData;
+        render();
+      } else {
+        document.getElementById('app').innerHTML = `<div class="spinner-border text-primary"></div><p>載入中...</p>`;
+      }
+      try {
+        const [dataRes, catRes] = await Promise.all([
+          fetch(`${API_URL}?sheet=${currentSheet}`),
+          fetch(`${API_URL}?action=getCategories&sheet=${currentSheet}`).catch(() => null)
+        ]);
+        const newData = await dataRes.json();
+        if (JSON.stringify(newData) !== cachedData) {
+          allData = newData;
+          filteredData = allData;
+          localStorage.setItem(cacheKey, JSON.stringify(allData));
+          render();
+        }
+        if (catRes) {
+          const categories = await catRes.json();
+          updateCategoryUI(categories);
+        }
+      } catch (err) {
+        if (!cachedData) document.getElementById('app').innerHTML = "載入失敗。";
+      }
+    }
 
-    function render() {
-      const app = document.getElementById('app');
-      if (!filteredData || filteredData.length === 0) { app.innerHTML = "目前沒有資料。"; return; }
-      const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
-      if (currentPage > totalPages) currentPage = totalPages;
-      const start = (currentPage - 1) * itemsPerPage;
-      const pagedData = filteredData.slice(start, start + itemsPerPage);
-      const starredList = getStarredList();
-      let html = '';
-      pagedData.forEach((item) => {
-        const isStarred = starredList.includes(String(item.id));
-        
-        // --- 【新增】判斷例句是否存在的邏輯 ---
-        const hasExample = item.example && item.example !== "null" && item.example.trim() !== "";
-        const exampleDisplay = hasExample ? 'display: block;' : 'display: none;';
-        
-        html += `
-          <div class="card-container">
-            <div class="word-card ${isStarred ? 'starred-border' : ''}" data-id="${item.id}" onclick="flipCard(this)">
-              <div class="card-front">
-                <div class="word-header">
-                  <button class="play-icon-btn" onclick="event.stopPropagation(); jumpToAndPlay('${item.id}')">▶</button>
-                  <span class="word-title">${item.word}</span>
-                  <button class="star-btn ${isStarred ? 'active' : ''}" onclick="toggleStar('${item.id}', event)">★</button>
-                  <span class="word-no">#${item.id}</span>
-                </div>
-                <div class="ipa-text" style="margin-left: 47px;">[ ${item.ipa || ''} ]</div>
-                <div class="badge-group" style="margin-left: 47px;">
-                  <span class="badge bg-cat">${item.cat || '未分類'}</span>
-                </div>
-                
-                <div class="example-box" style="${exampleDisplay}">
-                  <span class="example-label">例句<button class="play-btn-sm" onclick="event.stopPropagation(); playOnlyExample('${item.exampleAudio}', '${item.word}', '${item.id}')">🔊</button>:</span>
-                  ${item.example || ''}
-                </div>
-              </div>
-              <div class="card-back">
-                <div class="word-header"><span class="word-title" style="color:#28a745;">補充</span></div>
-                <div class="mt-2 text-start"><strong>例字/解釋：</strong><p class="mt-1">${item.meaning || '尚未填寫'}</p></div>
-                <div class="mt-auto text-end text-secondary small">點擊卡片翻回正面</div>
-              </div>
-            </div>
-          </div>`;
-      });
-      app.innerHTML = html;
-      document.getElementById('pageInput').value = currentPage;
-      document.getElementById('totalPages').innerText = `/ ${totalPages} 頁`;
-      document.getElementById('prevBtn').disabled = (currentPage === 1);
-      document.getElementById('nextBtn').disabled = (currentPage === totalPages);
-      if (typeof CNS11643 !== 'undefined') { setTimeout(() => CNS11643.fixed(), 150); }
-    }
+    function render() {
+      const app = document.getElementById('app');
+      if (!filteredData || filteredData.length === 0) { app.innerHTML = "目前沒有資料。"; return; }
+      const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      const start = (currentPage - 1) * itemsPerPage;
+      const pagedData = filteredData.slice(start, start + itemsPerPage);
+      const starredList = getStarredList();
+      let html = '';
+      
+      pagedData.forEach((item) => {
+        const isStarred = starredList.includes(String(item.id));
+        
+        // 判斷例句顯示
+        const hasExample = item.example && item.example !== "null" && item.example.trim() !== "";
+        const exampleDisplay = hasExample ? 'display: block;' : 'display: none;';
 
-    // --- 換頁邏輯 ---
-    function changePage(s) { 
-      currentPage += s; 
-      localStorage.setItem(`last_page_${currentSheet}`, currentPage); // 儲存頁碼進度
-      render(); 
-      window.scrollTo(0,0); 
-    }
-    function jumpToPage(v) { 
-      const p = parseInt(v); 
-      const total = Math.ceil(filteredData.length / itemsPerPage) || 1; 
-      if (p >= 1 && p <= total) { 
-        currentPage = p; 
-        localStorage.setItem(`last_page_${currentSheet}`, currentPage); // 儲存頁碼進度
-        render(); 
-        window.scrollTo(0,0); 
-      } 
-    }
+        // --- 【新增】判斷字典連結是否存在的邏輯 ---
+        const hasDict = item.dictUrl && item.dictUrl !== "null" && item.dictUrl.trim() !== "";
+        const dictDisplay = hasDict ? 'display: inline-block;' : 'display: none;';
+        
+        html += `
+          <div class="card-container">
+            <div class="word-card ${isStarred ? 'starred-border' : ''}" data-id="${item.id}" onclick="flipCard(this)">
+              <div class="card-front">
+                <div class="word-header">
+                  <button class="play-icon-btn" onclick="event.stopPropagation(); jumpToAndPlay('${item.id}')">▶</button>
+                  <span class="word-title">${item.word}</span>
+                  <button class="star-btn ${isStarred ? 'active' : ''}" onclick="toggleStar('${item.id}', event)">★</button>
+                  <span class="word-no">#${item.id}</span>
+                </div>
+                <div class="ipa-text" style="margin-left: 47px;">[ ${item.ipa || ''} ]</div>
+                <div class="badge-group" style="margin-left: 47px;">
+                  <span class="badge bg-cat">${item.cat || '未分類'}</span>
+                </div>
+                <div class="example-box" style="${exampleDisplay}">
+                  <span class="example-label">例句<button class="play-btn-sm" onclick="event.stopPropagation(); playOnlyExample('${item.exampleAudio}', '${item.word}', '${item.id}')">🔊</button>:</span>
+                  ${item.example || ''}
+                </div>
+              </div>
+              <div class="card-back">
+                <div class="word-header"><span class="word-title" style="color:#28a745;">解釋</span></div>
+                <div class="mt-2 text-start">
+                  <strong>華語詞義：</strong>
+                  <p class="mt-1">${item.meaning || '尚未填寫'}</p>
+                </div>
+                
+                <div class="mt-2 text-start" style="${dictDisplay}">
+                   <a href="${item.dictUrl}" target="_blank" class="btn btn-sm btn-outline-success" onclick="event.stopPropagation();">
+                     📖 線上字典檢視
+                   </a>
+                </div>
 
-    // --- 其他功能 ---
-    function updateCategoryUI(categories) {
-      const select = document.getElementById('categorySelect');
-      const currentVal = select.value;
-      select.innerHTML = '<option value="all">全部類別</option><option value="my_stars">⭐ 我的收藏</option>';
-      categories.forEach(cat => {
-        const opt = document.createElement('option');
-        opt.value = opt.innerText = cat;
-        select.appendChild(opt);
-      });
-      if ([...select.options].some(o => o.value === currentVal)) select.value = currentVal;
-    }
-    function toggleStar(id, event) {
-      event.stopPropagation();
-      let list = getStarredList();
-      const sid = String(id);
-      const i = list.indexOf(sid);
-      if (i > -1) list.splice(i, 1); else list.push(sid);
-      localStorage.setItem('starred_words', JSON.stringify(list));
-      render();
-    }
-    function getStarredList() { const s = localStorage.getItem('starred_words'); return s ? JSON.parse(s) : []; }
-    function filterByCategory(cat) {
-      stopSequence();
-      if (cat === "all") filteredData = allData;
-      else if (cat === "my_stars") { const list = getStarredList(); filteredData = allData.filter(item => list.includes(String(item.id))); }
-      else { filteredData = allData.filter(item => item.cat === cat); }
-      currentPage = 1; render();
-    }
-    function flipCard(e) { e.classList.toggle('is-flipped'); }
+                <div class="mt-auto text-end text-secondary small">點擊卡片翻回正面</div>
+              </div>
+            </div>
+          </div>`;
+      });
+      app.innerHTML = html;
+      // ... 其餘分頁控制邏輯不變 ...
+      document.getElementById('pageInput').value = currentPage;
+      document.getElementById('totalPages').innerText = `/ ${totalPages} 頁`;
+      document.getElementById('prevBtn').disabled = (currentPage === 1);
+      document.getElementById('nextBtn').disabled = (currentPage === totalPages);
+      if (typeof CNS11643 !== 'undefined') { setTimeout(() => CNS11643.fixed(), 150); }
+    }
 
-    // --- 播放邏輯 ---
-    function playSingle(url, label) {
-      const audioPlayer = document.getElementById('global-audio');
-      const finalUrl = url.trim().replace("dl=0", "raw=1");
-      document.getElementById('current-word').innerText = label;
-      audioPlayer.src = finalUrl;
-      audioPlayer.play().catch(e => console.log("播放失敗", e));
-    }
-    function jumpToAndPlay(targetId) {
-      const start = (currentPage - 1) * itemsPerPage;
-      playlist = filteredData.slice(start, start + itemsPerPage).filter(item => item.wordAudio || item.exampleAudio);
-      const idx = playlist.findIndex(item => String(item.id) === String(targetId));
-      if (idx !== -1) { stopSequence(); playlistIdx = idx; isAutoPlaying = true; startWordSequence(playlist[playlistIdx]); }
-    }
-    function startWordSequence(item) {
-      if (!isAutoPlaying) return;
-      const audioPlayer = document.getElementById('global-audio');
-      document.getElementById('player-container').style.display = 'block';
-      document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now'));
-      
-      const card = document.querySelector(`[data-id="${item.id}"]`);
-      if (card) {
-        card.classList.add('playing-now');
-        // 自動捲動到畫面中央
-        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+    // --- 換頁邏輯 ---
+    function changePage(s) { 
+      currentPage += s; 
+      localStorage.setItem(`last_page_${currentSheet}`, currentPage); // 儲存頁碼進度
+      render(); 
+      window.scrollTo(0,0); 
+    }
+    function jumpToPage(v) { 
+      const p = parseInt(v); 
+      const total = Math.ceil(filteredData.length / itemsPerPage) || 1; 
+      if (p >= 1 && p <= total) { 
+        currentPage = p; 
+        localStorage.setItem(`last_page_${currentSheet}`, currentPage); // 儲存頁碼進度
+        render(); 
+        window.scrollTo(0,0); 
+      } 
+    }
 
-      if (item.wordAudio && item.wordAudio !== "null") {
-        playSingle(item.wordAudio, `📢 語詞：${item.word}`);
-        audioPlayer.onended = () => {
-          if (item.exampleAudio && item.exampleAudio !== "null") {
-            setTimeout(() => { 
-              if (isAutoPlaying) { 
-                playSingle(item.exampleAudio, `📖 例句：${item.word}`); 
-                audioPlayer.onended = () => playNextInPlaylist(); 
-              } 
-            }, 800);
-          } else { playNextInPlaylist(); }
-        };
-      } else if (item.exampleAudio) {
-        playSingle(item.exampleAudio, `📖 例句：${item.word}`);
-        audioPlayer.onended = () => playNextInPlaylist();
-      }
-    }
-    function playNextInPlaylist() {
-      if (!isAutoPlaying) return;
-      playlistIdx++;
-      if (playlistIdx < playlist.length) {
-        setTimeout(() => { if(isAutoPlaying) startWordSequence(playlist[playlistIdx]); }, 1500);
-      } else { document.getElementById('current-word').innerText = "✅ 全頁播放完畢"; finishSequence(); }
-    }
-    function stopSequence() { isAutoPlaying = false; const a = document.getElementById('global-audio'); a.pause(); a.src = ""; document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now')); }
-    function finishSequence() { isAutoPlaying = false; document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now')); }
-    function playAllOnPage() {
-      const start = (currentPage - 1) * itemsPerPage;
-      playlist = filteredData.slice(start, start + itemsPerPage).filter(item => item.wordAudio || item.exampleAudio);
-      if (playlist.length === 0) return alert("本頁無音檔");
-      stopSequence(); isAutoPlaying = true; playlistIdx = 0; startWordSequence(playlist[playlistIdx]);
-    }
-    function playOnlyExample(url, name, id) { stopSequence(); document.getElementById('player-container').style.display = 'block'; playSingle(url, `📖 例句：${name}`); }
+    // --- 其他功能 ---
+    function updateCategoryUI(categories) {
+      const select = document.getElementById('categorySelect');
+      const currentVal = select.value;
+      select.innerHTML = '<option value="all">全部類別</option><option value="my_stars">⭐ 我的收藏</option>';
+      categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = opt.innerText = cat;
+        select.appendChild(opt);
+      });
+      if ([...select.options].some(o => o.value === currentVal)) select.value = currentVal;
+    }
+    function toggleStar(id, event) {
+      event.stopPropagation();
+      let list = getStarredList();
+      const sid = String(id);
+      const i = list.indexOf(sid);
+      if (i > -1) list.splice(i, 1); else list.push(sid);
+      localStorage.setItem('starred_words', JSON.stringify(list));
+      render();
+    }
+    function getStarredList() { const s = localStorage.getItem('starred_words'); return s ? JSON.parse(s) : []; }
+    function filterByCategory(cat) {
+      stopSequence();
+      if (cat === "all") filteredData = allData;
+      else if (cat === "my_stars") { const list = getStarredList(); filteredData = allData.filter(item => list.includes(String(item.id))); }
+      else { filteredData = allData.filter(item => item.cat === cat); }
+      currentPage = 1; render();
+    }
+    function flipCard(e) { e.classList.toggle('is-flipped'); }
 
-    window.onload = init;
-  </script>
+    // --- 播放邏輯 ---
+    function playSingle(url, label) {
+      const audioPlayer = document.getElementById('global-audio');
+      const finalUrl = url.trim().replace("dl=0", "raw=1");
+      document.getElementById('current-word').innerText = label;
+      audioPlayer.src = finalUrl;
+      audioPlayer.play().catch(e => console.log("播放失敗", e));
+    }
+    function jumpToAndPlay(targetId) {
+      const start = (currentPage - 1) * itemsPerPage;
+      playlist = filteredData.slice(start, start + itemsPerPage).filter(item => item.wordAudio || item.exampleAudio);
+      const idx = playlist.findIndex(item => String(item.id) === String(targetId));
+      if (idx !== -1) { stopSequence(); playlistIdx = idx; isAutoPlaying = true; startWordSequence(playlist[playlistIdx]); }
+    }
+    function startWordSequence(item) {
+      if (!isAutoPlaying) return;
+      const audioPlayer = document.getElementById('global-audio');
+      document.getElementById('player-container').style.display = 'block';
+      document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now'));
+      
+      const card = document.querySelector(`[data-id="${item.id}"]`);
+      if (card) {
+        card.classList.add('playing-now');
+        // 自動捲動到畫面中央
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      if (item.wordAudio && item.wordAudio !== "null") {
+        playSingle(item.wordAudio, `📢 語詞：${item.word}`);
+        audioPlayer.onended = () => {
+          if (item.exampleAudio && item.exampleAudio !== "null") {
+            setTimeout(() => { 
+              if (isAutoPlaying) { 
+                playSingle(item.exampleAudio, `📖 例句：${item.word}`); 
+                audioPlayer.onended = () => playNextInPlaylist(); 
+              } 
+            }, 800);
+          } else { playNextInPlaylist(); }
+        };
+      } else if (item.exampleAudio) {
+        playSingle(item.exampleAudio, `📖 例句：${item.word}`);
+        audioPlayer.onended = () => playNextInPlaylist();
+      }
+    }
+    function playNextInPlaylist() {
+      if (!isAutoPlaying) return;
+      playlistIdx++;
+      if (playlistIdx < playlist.length) {
+        setTimeout(() => { if(isAutoPlaying) startWordSequence(playlist[playlistIdx]); }, 1500);
+      } else { document.getElementById('current-word').innerText = "✅ 全頁播放完畢"; finishSequence(); }
+    }
+    function stopSequence() { isAutoPlaying = false; const a = document.getElementById('global-audio'); a.pause(); a.src = ""; document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now')); }
+    function finishSequence() { isAutoPlaying = false; document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing-now')); }
+    function playAllOnPage() {
+      const start = (currentPage - 1) * itemsPerPage;
+      playlist = filteredData.slice(start, start + itemsPerPage).filter(item => item.wordAudio || item.exampleAudio);
+      if (playlist.length === 0) return alert("本頁無音檔");
+      stopSequence(); isAutoPlaying = true; playlistIdx = 0; startWordSequence(playlist[playlistIdx]);
+    }
+    function playOnlyExample(url, name, id) { stopSequence(); document.getElementById('player-container').style.display = 'block'; playSingle(url, `📖 例句：${name}`); }
+
+    window.onload = init;
+  </script>
 </body>
 </html>
-
-
