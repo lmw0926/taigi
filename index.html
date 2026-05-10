@@ -4,10 +4,9 @@
   <script src="https://www.cns11643.gov.tw/AIDB/static/js/cns11643.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台語認證練習系統 - 自動換頁版</title>
+  <title>台語認證練習系統 - 自動換頁+字典恢復版</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    /* CSS 保持不變，包含 playing-now 樣式 */
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
     body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8f9fa; padding: 15px; padding-bottom: 120px !important; }
     .card-container { perspective: 1000px; margin-bottom: 20px; }
@@ -90,7 +89,7 @@
     let playlist = [];
     let playlistIdx = 0;
     let isAutoPlaying = false;
-    let isCrossPageMode = false; // 關鍵：記錄目前是否處於「全部播放」模式
+    let isCrossPageMode = false;
 
     async function init() {
       const savedSheet = localStorage.getItem('last_sheet');
@@ -103,7 +102,7 @@
           setupSheetButtons(names);
           await loadData();
         }
-      } catch (err) { console.error("Init Error", err); }
+      } catch (err) { console.error(err); }
     }
 
     async function loadData() {
@@ -123,7 +122,7 @@
           if (catRes) updateCategoryUI(await catRes.json());
           processAndRender();
         }
-      } catch (err) { console.error("Load Error", err); }
+      } catch (err) { console.error(err); }
     }
 
     function processAndRender() {
@@ -158,6 +157,9 @@
         app.innerHTML = pagedData.map(item => {
           const isStarred = starredList.includes(String(item.id));
           const hasEx = item.example && item.example !== "null" && item.example.trim() !== "";
+          // 重新補上字典檢查邏輯
+          const hasDict = item.dictUrl && item.dictUrl !== "null" && item.dictUrl.trim() !== "";
+          
           return `
             <div class="col card-container">
               <div class="word-card ${isStarred ? 'starred-border' : ''}" data-id="${item.id}" onclick="this.classList.toggle('is-flipped')">
@@ -165,6 +167,7 @@
                   <div class="word-header">
                     <button class="play-icon-btn" onclick="event.stopPropagation(); jumpToAndPlay('${item.id}')">▶</button>
                     <span class="word-title">${item.word}</span>
+                    ${hasDict ? `<a href="${item.dictUrl}" target="_blank" class="dict-link" onclick="event.stopPropagation();">📖</a>` : ''}
                     <button class="star-btn ${isStarred ? 'active' : ''}" onclick="toggleStar('${item.id}', event)">★</button>
                     <span class="word-no">#${item.id}</span>
                   </div>
@@ -175,6 +178,7 @@
                 <div class="card-back">
                   <div class="word-header"><span class="word-title text-success">解釋</span></div>
                   <div class="mt-2 text-start flex-grow-1"><strong>華語詞義：</strong><p class="mt-2">${item.meaning || '尚未填寫'}</p></div>
+                  <div class="mt-auto text-end text-secondary small">點擊卡片翻回正面</div>
                 </div>
               </div>
             </div>`;
@@ -187,7 +191,7 @@
       if (window.CNS11643) setTimeout(() => CNS11643.fixed(), 100);
     }
 
-    // 播放邏輯控制
+    // 播放核心
     function playSingle(url, label) {
       const p = document.getElementById('global-audio');
       document.getElementById('current-word').innerText = label;
@@ -197,22 +201,16 @@
 
     function stopSequence() { 
       isAutoPlaying = false; 
-      isCrossPageMode = false; // 停止時重置模式
+      isCrossPageMode = false;
       document.getElementById('global-audio').pause(); 
       document.querySelectorAll('.word-card').forEach(c=>c.classList.remove('playing-now')); 
     }
 
-    // 當按下卡片上的播放鍵
     function jumpToAndPlay(id) {
-      // 不重置 isCrossPageMode，如果已經是在「全部播放」模式下點擊，它會繼續接下去播
       const start = (currentPage - 1) * itemsPerPage;
       playlist = filteredData.slice(start, start + itemsPerPage).filter(i => i.wordAudio || i.exampleAudio);
       playlistIdx = playlist.findIndex(i => String(i.id) === String(id));
-      
-      if(playlistIdx !== -1) {
-        isAutoPlaying = true; 
-        startSeq(playlist[playlistIdx]); 
-      }
+      if(playlistIdx !== -1) { isAutoPlaying = true; startSeq(playlist[playlistIdx]); }
     }
 
     function startSeq(item) {
@@ -238,15 +236,13 @@
     function nextSeq() {
       if(!isAutoPlaying) return;
       playlistIdx++;
-      
       if(playlistIdx < playlist.length) {
         setTimeout(() => startSeq(playlist[playlistIdx]), 1200);
       } else {
-        // 本頁播放完畢
         if(isCrossPageMode) {
           const totalPages = Math.ceil(filteredData.length / itemsPerPage);
           if(currentPage < totalPages) {
-            document.getElementById('current-word').innerText = "⏩ 自動前往下一頁...";
+            document.getElementById('current-word').innerText = "⏩ 自動換頁中...";
             setTimeout(() => {
               changePage(1);
               setTimeout(() => {
@@ -256,33 +252,16 @@
                 if(playlist.length > 0) startSeq(playlist[0]); else stopSequence();
               }, 1200);
             }, 1000);
-          } else {
-            document.getElementById('current-word').innerText = "✅ 全部播放完成";
-            stopSequence();
-          }
-        } else {
-          stopSequence();
-        }
+          } else { stopSequence(); }
+        } else { stopSequence(); }
       }
     }
 
-    function playAllOnPage() {
-      isCrossPageMode = false; // 設定為單頁模式
-      isAutoPlaying = true;
-      const start = (currentPage - 1) * itemsPerPage;
-      playlist = filteredData.slice(start, start + itemsPerPage).filter(i => i.wordAudio || i.exampleAudio);
-      if(playlist.length > 0) { playlistIdx = 0; startSeq(playlist[0]); }
-    }
+    function playAllOnPage() { isCrossPageMode = false; isAutoPlaying = true; const start = (currentPage - 1) * itemsPerPage; playlist = filteredData.slice(start, start + itemsPerPage).filter(i => i.wordAudio || i.exampleAudio); if(playlist.length > 0) { playlistIdx = 0; startSeq(playlist[0]); } }
+    function playEverything() { isCrossPageMode = true; isAutoPlaying = true; const start = (currentPage - 1) * itemsPerPage; playlist = filteredData.slice(start, start + itemsPerPage).filter(i => i.wordAudio || i.exampleAudio); if(playlist.length > 0) { playlistIdx = 0; startSeq(playlist[0]); } }
+    function playOnlyExample(url, name) { stopSequence(); document.getElementById('player-container').style.display='block'; playSingle(url, "📖 例句："+name); }
 
-    function playEverything() {
-      isCrossPageMode = true; // 設定為跨頁模式
-      isAutoPlaying = true;
-      const start = (currentPage - 1) * itemsPerPage;
-      playlist = filteredData.slice(start, start + itemsPerPage).filter(i => i.wordAudio || i.exampleAudio);
-      if(playlist.length > 0) { playlistIdx = 0; startSeq(playlist[0]); }
-    }
-
-    // 其他輔助函式
+    // 介面控制
     function filterByCategory(cat) { stopSequence(); localStorage.setItem(`last_cat_${currentSheet}`, cat); localStorage.setItem(`last_page_${currentSheet}`, 1); currentPage = 1; applyFilter(cat); render(); }
     function changePage(s) { currentPage += s; localStorage.setItem(`last_page_${currentSheet}`, currentPage); render(); window.scrollTo(0,0); }
     function jumpToPage(v) { const p = parseInt(v); if (p >= 1) { currentPage = p; localStorage.setItem(`last_page_${currentSheet}`, p); render(); } }
@@ -291,7 +270,6 @@
     function updateCategoryUI(cats) { const select = document.getElementById('categorySelect'); const current = select.value; select.innerHTML = '<option value="all">全部類別</option><option value="my_stars">⭐ 我的收藏</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join(''); select.value = current; }
     function getStarredList() { return JSON.parse(localStorage.getItem('starred_words') || "[]"); }
     function toggleStar(id, e) { e.stopPropagation(); let list = getStarredList(); const i = list.indexOf(String(id)); if(i > -1) list.splice(i, 1); else list.push(String(id)); localStorage.setItem('starred_words', JSON.stringify(list)); render(); }
-    function playOnlyExample(url, name) { stopSequence(); document.getElementById('player-container').style.display='block'; playSingle(url, "📖 例句："+name); }
 
     window.onload = init;
   </script>
