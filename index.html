@@ -142,7 +142,9 @@
         const isStarred = starredList.includes(String(item.id));
         const hasEx = item.example && item.example !== "null";
         const hasDict = item.dictUrl && item.dictUrl !== "null";
+        const displayId = item.id || '---'; 
         return `
+        
           <div class="col card-container" id="container-${item.id}">
             <div class="word-card ${isStarred ? 'starred-border' : ''}" data-id="${item.id}" onclick="this.classList.toggle('is-flipped')">
               <div class="card-front">
