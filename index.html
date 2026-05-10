@@ -186,24 +186,13 @@
     // 處理字串中的 &#x...; 並轉為圖片 (改用更穩定的圖片來源)
     function fixRareChars(text) {
       if (!text) return "";
-    
-      // 匹配 &#x22F0C; 或 &#143116; 格式
-      return text.replace(/&#([xX][0-9A-Fa-f]+|\d+);/g, (match, code) => {
-        let hex;
-        if (code.toLowerCase().startsWith('x')) {
-          hex = code.substring(1).toLowerCase();
-        } else {
-          hex = parseInt(code, 10).toString(16).toLowerCase();
-        }
-    
-        // 使用萌典的 API 取得該字元的圖片，並設定樣式
-        // 這是目前對手機版相容性最高的方法
-        const strokeUrl = `https://api.moedict.tw/png/${hex}.png`;
-        
-        return `<img src="${strokeUrl}" 
-                     alt="罕用字" 
-                     style="height:1.2em; width:auto; vertical-align:text-bottom; margin:0 2px; filter: contrast(1.2) brightness(0.9);"
-                     onerror="this.parentNode.innerHTML='${match}'">`;
+      
+      // 手機版最穩定的做法：將編碼轉回成「真正的字元」
+      // 讓 Noto Sans TC 等字型去處理渲染，而不是靠圖片
+      return text.replace(/&#[xX]([0-9A-Fa-f]+);/g, (match, hex) => {
+        return String.fromCodePoint(parseInt(hex, 16));
+      }).replace(/&#(\d+);/g, (match, dec) => {
+        return String.fromCodePoint(parseInt(dec, 10));
       });
     }
 
