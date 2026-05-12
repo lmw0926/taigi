@@ -51,6 +51,7 @@
             <p id="loadingText" class="text-slate-500">正在同步雲端題庫...</p>
         </div>
 
+        <!-- 學習視窗 -->
         <div id="studyView" class="hidden">
             <div class="flex flex-wrap gap-2 mb-6">
                 <button id="playPageBtn" class="flex-1 py-3 bg-indigo-100 text-indigo-700 font-bold rounded-xl hover:bg-indigo-200 transition-all">📄 播放本頁</button>
@@ -65,52 +66,82 @@
             </div>
         </div>
 
+        <!-- 遊戲視窗 -->
         <div id="gameView" class="hidden">
             <div id="gameStartScreen" class="py-12 bg-white rounded-3xl shadow-xl border p-8 text-center">
                 <h2 class="text-3xl font-bold mb-6">挑戰賽設定</h2>
-                <div class="grid grid-cols-2 gap-4 mb-6">
-                    <div class="text-left">
+                <div class="grid grid-cols-2 gap-4 mb-6 text-left">
+                    <div>
                         <label class="block text-sm font-bold text-slate-500 mb-1">選擇模式</label>
                         <select id="gameModeSelect" class="w-full p-3 bg-slate-100 rounded-xl border-none">
                             <option value="listen">聽力選選樂</option>
                             <option value="match">拖拉配對王</option>
                         </select>
                     </div>
-                    <div class="text-left">
+                    <div>
                         <label class="block text-sm font-bold text-slate-500 mb-1">單字範圍</label>
                         <select id="gameScopeSelect" class="w-full p-3 bg-slate-100 rounded-xl border-none">
                             <option value="current">目前分類</option>
+                            <option value="all">所有分類</option>
                             <option value="fav">僅限星號收藏 (⭐)</option>
-                            <option value="all">所有單字</option>
                         </select>
                     </div>
                 </div>
-                <button onclick="startSelectedGame()" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg hover:bg-indigo-700 mb-8">開始挑戰</button>
+                <button onclick="startSelectedGame()" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg hover:bg-indigo-700 mb-8 transition-transform active:scale-95">開始挑戰</button>
+                
                 <div class="border-t pt-6 text-left">
-                    <h3 class="font-bold text-slate-400 mb-4 uppercase tracking-widest text-xs">🏆 榮譽榜</h3>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div class="bg-indigo-50 p-3 rounded-xl"><div class="text-slate-500">聽力最高</div><div id="highScoreListen" class="text-xl font-black text-indigo-600">0</div></div>
-                        <div class="bg-indigo-50 p-3 rounded-xl"><div class="text-slate-500">配對最高</div><div id="highScoreMatch" class="text-xl font-black text-indigo-600">0</div></div>
+                    <h3 class="font-bold text-slate-400 mb-4 uppercase tracking-widest text-xs">🏆 榮譽榜 (最高得分)</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-indigo-50 p-4 rounded-xl">
+                            <div class="text-indigo-400 text-xs font-bold">聽力選選樂</div>
+                            <div class="flex justify-between items-end mt-1">
+                                <span id="highScoreNameListen" class="text-slate-600 font-bold">無</span>
+                                <span id="highScoreListen" class="text-2xl font-black text-indigo-600">0</span>
+                            </div>
+                        </div>
+                        <div class="bg-indigo-50 p-4 rounded-xl">
+                            <div class="text-indigo-400 text-xs font-bold">拖拉配對王</div>
+                            <div class="flex justify-between items-end mt-1">
+                                <span id="highScoreNameMatch" class="text-slate-600 font-bold">無</span>
+                                <span id="highScoreMatch" class="text-2xl font-black text-indigo-600">0</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <!-- 聽力遊戲介面 -->
             <div id="gamePlayListen" class="hidden">
-                <div class="flex justify-between items-center mb-6"><div class="bg-indigo-100 px-4 py-2 rounded-full font-bold">得分: <span id="listenScore">0</span></div><button onclick="backToMenu()" class="text-slate-400 font-bold">結束</button></div>
-                <div class="bg-white rounded-3xl shadow-xl p-8 mb-6 text-center"><button id="listenMainAudioBtn" class="w-24 h-24 bg-indigo-600 text-white rounded-full mx-auto text-4xl shadow-lg hover:scale-105 transition-all">🔊</button></div>
+                <div class="flex justify-between items-center mb-6">
+                    <div class="bg-indigo-100 px-4 py-2 rounded-full font-bold text-indigo-700">得分: <span id="listenScore">0</span></div>
+                    <button onclick="backToMenu()" class="text-slate-400 font-bold hover:text-rose-500">結束</button>
+                </div>
+                <div class="bg-white rounded-3xl shadow-xl p-8 mb-6 text-center">
+                    <button id="listenMainAudioBtn" class="w-24 h-24 bg-indigo-600 text-white rounded-full mx-auto text-4xl shadow-lg hover:scale-105 transition-all active:scale-95">🔊</button>
+                </div>
                 <div id="listenOptions" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
             </div>
 
+            <!-- 配對遊戲介面 -->
             <div id="gamePlayMatch" class="hidden">
-                <div class="flex justify-between items-center mb-6"><div class="bg-indigo-100 px-4 py-2 rounded-full font-bold">得分: <span id="matchScore">0</span></div><button onclick="backToMenu()" class="text-slate-400 font-bold">結束</button></div>
+                <div class="flex justify-between items-center mb-6">
+                    <div class="bg-indigo-100 px-4 py-2 rounded-full font-bold text-indigo-700">得分: <span id="matchScore">0</span></div>
+                    <button onclick="backToMenu()" class="text-slate-400 font-bold hover:text-rose-500">結束</button>
+                </div>
                 <div class="grid grid-cols-2 gap-4"><div id="matchWordsCol" class="space-y-3"></div><div id="matchPojCol" class="space-y-3"></div></div>
                 <div id="matchFeedback" class="mt-8 text-center font-bold h-6"></div>
             </div>
             
+            <!-- 結算介面 -->
             <div id="gameResultScreen" class="hidden text-center py-12 bg-white rounded-3xl shadow-xl p-8">
-                <h2 class="text-3xl font-bold mb-4">挑戰結束！</h2>
-                <div class="text-6xl font-black text-indigo-600 mb-8" id="finalScore">0</div>
-                <button onclick="backToMenu()" class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md">返回主選單</button>
+                <h2 class="text-3xl font-bold mb-2">挑戰結束！</h2>
+                <p id="newRecordMsg" class="text-amber-500 font-bold mb-4 hidden">🎉 恭喜！創下新紀錄！</p>
+                <div class="text-7xl font-black text-indigo-600 mb-8" id="finalScore">0</div>
+                <div id="nameInputArea" class="mb-8 hidden">
+                    <label class="block text-sm font-bold text-slate-400 mb-2">請輸入您的名字留名榮譽榜：</label>
+                    <input type="text" id="playerNameInput" maxlength="10" placeholder="名字..." class="p-3 border-2 border-indigo-100 rounded-xl text-center font-bold focus:border-indigo-500 outline-none">
+                </div>
+                <button onclick="saveAndExit()" class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md hover:bg-indigo-700 transition-all">確認返回</button>
             </div>
         </div>
     </main>
@@ -121,7 +152,7 @@
         let allData = [];
         let filteredData = [];
         let favorites = JSON.parse(localStorage.getItem('taigi_favs') || '[]');
-        let highScores = JSON.parse(localStorage.getItem('taigi_scores') || '{"listen":0,"match":0}');
+        let highScores = JSON.parse(localStorage.getItem('taigi_highscores_v2') || '{"listen":{"score":0,"name":"無"},"match":{"score":0,"name":"無"}}');
         let currentPage = 1;
         const pageSize = 8;
         let isAutoPlaying = false;
@@ -130,7 +161,8 @@
         let currentPlayIndex = -1;
         let gameScore = 0;
         let currentQuestion = null;
-        let currentPlayMode = 'single'; // 'single', 'page', 'all'
+        let currentPlayMode = 'single';
+        let activeGameMode = '';
 
         const audioPlayer = document.getElementById('audioPlayer');
 
@@ -142,7 +174,7 @@
             renderGrid();
         }
 
-        // 優化後的 CSV 解析器 (正則表達式處理逗點與引號)
+        // 強化版 CSV 解析器
         function parseCSV(text) {
             const lines = text.split(/\r?\n/);
             return lines.filter(l => l.trim()).map(line => {
@@ -152,7 +184,8 @@
                 for (let i = 0; i < line.length; i++) {
                     const char = line[i];
                     if (char === '"') {
-                        inQuotes = !inQuotes;
+                        if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
+                        else inQuotes = !inQuotes;
                     } else if (char === ',' && !inQuotes) {
                         result.push(current.trim());
                         current = '';
@@ -171,14 +204,14 @@
                 const text = await response.text();
                 const rows = parseCSV(text);
                 
-                // 根據您指定的最新欄位順序對應
                 allData = rows.slice(1).map((r, i) => ({
                     id: `id-${i}`, 
                     word: r[1] || '',     // 語詞
                     audio: r[2] || '',    // 聲音檔
                     poj: r[5] || '',      // 羅馬拼音
                     meaning: r[6] || '',  // 釋義
-                    category: r[7] || '未分類' // 分類
+                    category: r[7] || '未分類', // 分類
+                    dictUrl: r[8] || ''   // I 欄：字典連結
                 })).filter(d => d.word && d.audio);
 
                 const cats = ['all', ...new Set(allData.map(d => d.category))];
@@ -189,14 +222,15 @@
                     opt.value = c; opt.textContent = c === 'all' ? '所有分類' : c; sel.appendChild(opt);
                 });
             } catch (err) {
-                console.error("資料加載失敗:", err);
-                document.getElementById('loadingText').innerText = "雲端同步失敗，請重新整理頁面。";
+                document.getElementById('loadingText').innerText = "連線失敗，請檢查網路。";
             }
         }
 
         function updateScoreDisplay() {
-            document.getElementById('highScoreListen').innerText = highScores.listen;
-            document.getElementById('highScoreMatch').innerText = highScores.match;
+            document.getElementById('highScoreListen').innerText = highScores.listen.score;
+            document.getElementById('highScoreNameListen').innerText = highScores.listen.name;
+            document.getElementById('highScoreMatch').innerText = highScores.match.score;
+            document.getElementById('highScoreNameMatch').innerText = highScores.match.name;
         }
 
         window.toggleFavorite = function(id) {
@@ -232,7 +266,7 @@
                         </div>
                         <div class="flex gap-4 mt-2 items-center">
                             <span class="text-lg text-slate-400 font-medium">${item.meaning}</span>
-                            <a href="https://twblg.dict.edu.tw/holodict_new/result.jsp?queryword=${encodeURIComponent(item.word)}" target="_blank" class="text-indigo-400 hover:text-indigo-600 font-bold" onclick="event.stopPropagation()">📖</a>
+                            ${item.dictUrl ? `<a href="${item.dictUrl}" target="_blank" class="text-indigo-400 hover:text-indigo-600 font-bold" onclick="event.stopPropagation()">📖</a>` : ''}
                             <span onclick="event.stopPropagation(); window.toggleFavorite('${item.id}')" class="cursor-pointer ${isFav ? 'star-active text-amber-500' : 'text-slate-300'} hover:scale-125 transition-all text-2xl">★</span>
                         </div>
                     </div>
@@ -240,16 +274,9 @@
                 `;
                 card.onclick = () => {
                     if (isAutoPlaying) {
-                        // 如果在連續播放狀態，從這一張開始往下播
                         const globalIdx = filteredData.indexOf(item);
-                        if (globalIdx !== -1) {
-                            currentPlayIndex = globalIdx;
-                            playCurrentFromList();
-                        }
-                    } else {
-                        // 單純播放
-                        playAudio(item.audio);
-                    }
+                        if (globalIdx !== -1) { currentPlayIndex = globalIdx; playCurrentFromList(); }
+                    } else { playAudio(item.audio); }
                 };
                 grid.appendChild(card);
             });
@@ -260,7 +287,7 @@
 
         function playAudio(url) {
             audioPlayer.src = url;
-            audioPlayer.play().catch(e => console.warn("音頻播放被攔截", e));
+            audioPlayer.play().catch(e => console.warn("播放受限", e));
         }
 
         function startAutoPlay(mode) {
@@ -274,28 +301,15 @@
 
         function playCurrentFromList() {
             if (!isAutoPlaying || currentPlayIndex >= playList.length) { stopAutoPlay(); return; }
-            
-            // 如果是「播放本頁」模式，檢查是否播完了本頁最後一項
-            if (currentPlayMode === 'page') {
-                const lastIdxOfPage = (currentPage * pageSize) - 1;
-                if (currentPlayIndex > lastIdxOfPage) { stopAutoPlay(); return; }
-            }
+            if (currentPlayMode === 'page' && currentPlayIndex > (currentPage * pageSize) - 1) { stopAutoPlay(); return; }
 
             const item = playList[currentPlayIndex];
-            
-            // 自動翻頁邏輯
             const targetPage = Math.floor(filteredData.indexOf(item) / pageSize) + 1;
-            if (targetPage !== currentPage) { 
-                currentPage = targetPage; 
-                renderGrid(); 
-            }
+            if (targetPage !== currentPage) { currentPage = targetPage; renderGrid(); }
 
             document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
             const card = document.getElementById(`card-${item.id}`);
-            if (card) { 
-                card.classList.add('playing'); 
-                card.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
-            }
+            if (card) { card.classList.add('playing'); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
             playAudio(item.audio);
         }
 
@@ -310,11 +324,14 @@
         window.startSelectedGame = () => {
             const mode = document.getElementById('gameModeSelect').value;
             const scope = document.getElementById('gameScopeSelect').value;
-            let pool = allData;
-            if (scope === 'current') pool = filteredData;
+            activeGameMode = mode;
+            
+            let pool = [];
+            if (scope === 'current') pool = [...filteredData];
+            else if (scope === 'all') pool = [...allData];
             else if (scope === 'fav') pool = allData.filter(d => favorites.includes(d.id));
             
-            if (pool.length < 5) { alert('單字數量不足以開始遊戲，請多收藏一些單字或切換分類'); return; }
+            if (pool.length < 5) { alert('單字數量不足（至少需 5 個），請切換範圍或多收藏一些單字。'); return; }
             
             window.gamePool = pool;
             gameScore = 0;
@@ -344,14 +361,11 @@
             container.innerHTML = '';
             options.forEach(opt => {
                 const btn = document.createElement('button');
-                btn.className = 'p-5 bg-white border-2 border-slate-200 rounded-2xl font-bold text-xl hover:border-indigo-500 hover:bg-indigo-50 transition-all';
+                btn.className = 'p-5 bg-white border-2 border-slate-200 rounded-2xl font-bold text-xl hover:border-indigo-500 hover:bg-indigo-50 transition-all active:scale-95';
                 btn.innerText = opt.word;
                 btn.onclick = () => {
-                    if (opt.id === currentQuestion.id) { 
-                        gameScore += 10; 
-                        document.getElementById('listenScore').innerText = gameScore; 
-                        nextListenQuestion(); 
-                    } else { endGame('listen'); }
+                    if (opt.id === currentQuestion.id) { gameScore += 10; document.getElementById('listenScore').innerText = gameScore; nextListenQuestion(); } 
+                    else { endGame('listen'); }
                 };
                 container.appendChild(btn);
             });
@@ -393,15 +407,11 @@
                         playAudio(it.audio);
                         div.className = 'p-4 bg-green-100 border-2 border-green-500 rounded-xl font-bold text-2xl text-center text-green-700';
                         div.innerText = `✅ ${it.word}`;
-                        const dragged = document.getElementById(`drag-${it.id}`);
-                        if (dragged) dragged.classList.add('matched-item');
+                        document.getElementById(`drag-${it.id}`).classList.add('matched-item');
                         if (!document.querySelector('.draggable:not(.matched-item)')) setTimeout(nextMatchRound, 1000);
                     } else { 
-                        div.classList.add('shake');
-                        setTimeout(() => div.classList.remove('shake'), 500);
-                        feedback.innerText = '❌ 配對錯誤！'; 
-                        feedback.className = "mt-4 text-rose-500 font-bold text-center"; 
-                        setTimeout(() => feedback.innerText = '', 1000); 
+                        div.classList.add('shake'); setTimeout(() => div.classList.remove('shake'), 500);
+                        feedback.innerText = '❌ 配對錯誤！'; feedback.className = "mt-4 text-rose-500 font-bold"; setTimeout(() => feedback.innerText = '', 1000); 
                     }
                 };
                 pojCol.appendChild(div);
@@ -413,12 +423,27 @@
             document.getElementById('gamePlayMatch').classList.add('hidden');
             document.getElementById('gameResultScreen').classList.remove('hidden');
             document.getElementById('finalScore').innerText = gameScore;
-            if (gameScore > highScores[mode]) {
-                highScores[mode] = gameScore;
-                localStorage.setItem('taigi_scores', JSON.stringify(highScores));
-                updateScoreDisplay();
+            
+            if (gameScore > highScores[mode].score) {
+                document.getElementById('newRecordMsg').classList.remove('hidden');
+                document.getElementById('nameInputArea').classList.remove('hidden');
+            } else {
+                document.getElementById('newRecordMsg').classList.add('hidden');
+                document.getElementById('nameInputArea').classList.add('hidden');
             }
         }
+
+        window.saveAndExit = () => {
+            const mode = activeGameMode;
+            if (gameScore > highScores[mode].score) {
+                const name = document.getElementById('playerNameInput').value.trim() || '不具名高手';
+                highScores[mode] = { score: gameScore, name: name };
+                localStorage.setItem('taigi_highscores_v2', JSON.stringify(highScores));
+                updateScoreDisplay();
+            }
+            document.getElementById('playerNameInput').value = '';
+            backToMenu();
+        };
 
         window.backToMenu = () => {
             document.getElementById('gamePlayListen').classList.add('hidden');
