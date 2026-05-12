@@ -3,26 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台語學習通 - 語音辨識增強版</title>
+    <title>台語學習通 - 進階增強版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
         body {
             font-family: 'Noto Sans TC', sans-serif;
-            background-color: #f1f5f9;
+            background-color: #f8fafc;
         }
-        .word-card { transition: all 0.2s ease; }
-        .word-card.playing { border-color: #6366f1; background-color: #eef2ff; box-shadow: 0 0 0 2px #6366f1; }
-        .mic-active { animation: pulse-red 1.5s infinite; background-color: #ef4444 !important; }
-        @keyframes pulse-red {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        .word-card { transition: all 0.3s ease; }
+        .word-card.playing { 
+            border-color: #6366f1; 
+            background-color: #eef2ff; 
+            box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2);
+            transform: scale(1.02);
         }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .match-btn.selected { border-color: #6366f1; background-color: #eef2ff; }
-        .match-btn.matched { visibility: hidden; opacity: 0; pointer-events: none; }
+        
+        /* 拖拉樣式 */
+        .draggable { cursor: grab; user-select: none; }
+        .draggable:active { cursor: grabbing; }
+        .drop-zone { transition: all 0.2s; }
+        .drop-zone.drag-over { background-color: #e0e7ff; border-color: #6366f1; transform: scale(1.05); }
+        .matched-item { opacity: 0.3; pointer-events: none; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -48,9 +52,6 @@
     </header>
 
     <main class="flex-grow p-4 sm:p-6 max-w-4xl w-full mx-auto">
-        <!-- 訊息通知 -->
-        <div id="toast" class="hidden fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-slate-800 text-white px-6 py-3 rounded-2xl shadow-2xl transition-all duration-300"></div>
-
         <!-- 載入中 -->
         <div id="loadingOverlay" class="flex flex-col items-center justify-center py-20">
             <div class="loader mb-4"></div>
@@ -59,11 +60,14 @@
 
         <!-- 學習視圖 -->
         <div id="studyView" class="hidden">
-            <div class="flex gap-2 mb-6">
+            <div class="flex flex-wrap gap-2 mb-6">
                 <button id="playPageBtn" class="flex-1 py-3 bg-indigo-100 text-indigo-700 font-bold rounded-xl hover:bg-indigo-200 transition-all flex items-center justify-center gap-2">
-                    <span>🔊 播放本頁</span>
+                    <span>📄 播放本頁</span>
                 </button>
-                <button id="stopPlayBtn" class="hidden px-6 py-3 bg-rose-100 text-rose-600 font-bold rounded-xl hover:bg-rose-200 transition-all">停止</button>
+                <button id="playAllBtn" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
+                    <span>🔁 播放全部 (自動翻頁)</span>
+                </button>
+                <button id="stopPlayBtn" class="hidden px-6 py-3 bg-rose-100 text-rose-600 font-bold rounded-xl hover:bg-rose-200 transition-all">停止播放</button>
             </div>
 
             <div id="wordGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
@@ -81,42 +85,58 @@
 
         <!-- 遊戲視圖 -->
         <div id="gameView" class="hidden">
+            <!-- 遊戲首頁 -->
             <div id="gameStartScreen" class="py-12 bg-white rounded-3xl shadow-xl border border-slate-100 px-8 text-center">
                 <div class="text-6xl mb-6">🎮</div>
                 <h2 class="text-3xl font-bold text-slate-800 mb-6">台語挑戰賽</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                    <button onclick="selectGameMode('listen')" id="modeBtnListen" class="game-mode-btn p-4 border-2 border-indigo-600 bg-indigo-50 rounded-2xl text-left">🎧 聽力選選樂</button>
-                    <button onclick="selectGameMode('match')" id="modeBtnMatch" class="game-mode-btn p-4 border-2 border-slate-100 bg-white rounded-2xl text-left">🧩 語詞配對</button>
-                    <button onclick="selectGameMode('speak')" id="modeBtnSpeak" class="game-mode-btn p-4 border-2 border-slate-100 bg-white rounded-2xl text-left">🎙️ 口說挑戰</button>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 max-w-md mx-auto">
+                    <button onclick="selectGameMode('listen')" id="modeBtnListen" class="game-mode-btn p-6 border-2 border-indigo-600 bg-indigo-50 rounded-2xl text-center">
+                        <div class="text-3xl mb-2">🎧</div>
+                        <div class="font-bold">聽力選選樂</div>
+                    </button>
+                    <button onclick="selectGameMode('match')" id="modeBtnMatch" class="game-mode-btn p-6 border-2 border-slate-100 bg-white rounded-2xl text-center">
+                        <div class="text-3xl mb-2">🧩</div>
+                        <div class="font-bold">拖拉配對王</div>
+                    </button>
                 </div>
                 <button onclick="startSelectedGame()" class="px-12 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg hover:bg-indigo-700 w-full max-w-xs transition-all">開始遊戲</button>
             </div>
 
-            <!-- 聽力、配對模式（略，保持原功能） -->
-            <div id="gamePlayListen" class="hidden">...</div>
-            <div id="gamePlayMatch" class="hidden">...</div>
-
-            <!-- 口說挑戰區（重點增強） -->
-            <div id="gamePlaySpeak" class="hidden">
+            <!-- 聽力挑戰 -->
+            <div id="gamePlayListen" class="hidden">
                 <div class="flex justify-between items-center mb-6">
-                    <div class="bg-rose-100 px-4 py-2 rounded-full text-rose-700 font-bold">得分: <span id="speakScore">0</span></div>
+                    <div class="bg-indigo-100 px-4 py-2 rounded-full text-indigo-700 font-bold">得分: <span id="listenScore">0</span></div>
                     <button onclick="backToMenu()" class="text-slate-400">結束</button>
                 </div>
                 <div class="bg-white rounded-3xl shadow-xl p-8 mb-6 text-center">
-                    <div id="speakTargetWord" class="text-5xl font-bold text-slate-800 mb-2">---</div>
-                    <div id="speakTargetPoj" class="text-2xl text-indigo-500 mb-4 font-mono">---</div>
-                    <div id="speakTargetMeaning" class="text-slate-400 mb-8 italic">義：---</div>
-                    
-                    <div id="recognitionResult" class="min-h-[100px] flex flex-col items-center justify-center text-slate-500 italic mb-8 p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-indigo-200">
-                        <div class="text-sm">系統準備中...</div>
-                    </div>
-
-                    <button id="micBtn" class="w-24 h-24 bg-rose-500 text-white rounded-full mx-auto flex items-center justify-center shadow-lg transition-all text-3xl hover:bg-rose-600 active:scale-95">🎙️</button>
-                    <div id="micStatus" class="mt-4 text-rose-500 font-bold">點擊按鈕開始錄音</div>
-                    <p class="text-xs text-slate-400 mt-2">提示：若無法辨識，請試著用較慢的語速發音</p>
+                    <div class="text-slate-400 mb-4">聽發音選出正確單字</div>
+                    <button id="listenMainAudioBtn" class="w-24 h-24 bg-indigo-600 text-white rounded-full mx-auto flex items-center justify-center text-4xl shadow-lg hover:scale-105 transition-all">🔊</button>
                 </div>
+                <div id="listenOptions" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+            </div>
+
+            <!-- 拖拉配對模式 -->
+            <div id="gamePlayMatch" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div class="bg-indigo-100 px-4 py-2 rounded-full text-indigo-700 font-bold">得分: <span id="matchScore">0</span></div>
+                    <button onclick="backToMenu()" class="text-slate-400 font-bold underline">結束遊戲</button>
+                </div>
+                <div class="grid grid-cols-2 gap-8 items-start">
+                    <!-- 左側：拖曳語詞 -->
+                    <div class="space-y-4">
+                        <h3 class="text-center font-bold text-slate-500 text-sm mb-2">拖曳語詞 ➔</h3>
+                        <div id="matchWordsCol" class="space-y-3"></div>
+                    </div>
+                    <!-- 右側：放置音標 -->
+                    <div class="space-y-4">
+                        <h3 class="text-center font-bold text-slate-500 text-sm mb-2">➔ 放到音標上</h3>
+                        <div id="matchPojCol" class="space-y-3"></div>
+                    </div>
+                </div>
+                <div id="matchFeedback" class="mt-8 text-center min-h-[30px] font-bold text-indigo-600"></div>
             </div>
             
+            <!-- 結果畫面 -->
             <div id="gameResultScreen" class="hidden text-center py-12 bg-white rounded-3xl shadow-xl p-8">
                 <h2 class="text-3xl font-bold mb-4">挑戰結束！</h2>
                 <div class="text-6xl font-black text-indigo-600 mb-8" id="finalScore">0</div>
@@ -135,37 +155,21 @@
         let gameMode = 'listen';
         let gameScore = 0;
         let currentQuestion = null;
-        let recognition = null;
-        let isRecognitionActive = false;
-
-        // 核心增強：台語諧音匹配對照表 (Fuzzy Map)
-        // 當系統聽台語卻用國語字回傳時，我們透過此表進行補償
-        const TAIGI_FUZZY_MAP = {
-            "食": ["吃", "呷", "甲", "食", "下", "下"],
-            "飽": ["飽", "跑"],
-            "未": ["沒", "妹", "尾", "袂"],
-            "水": ["美", "水", "漂亮", "隨", "睡"],
-            "你好": ["利好", "你好", "哩厚", "黎厚", "哩好"],
-            "多謝": ["多謝", "多夏", "多下", "勞力"],
-            "無": ["某", "謀", "無", "毛", "無"],
-            "是": ["細", "係", "是", "吸", "系"],
-            "這": ["結", "這", "擠", "這"],
-            "那": ["彼", "嘿", "那", "比", "希"],
-            "愛": ["愛", "哎"],
-            "人": ["狼", "人"]
-        };
+        let isAutoPlaying = false;
+        let playMode = 'page'; // 'page' or 'all'
+        let playList = [];
+        let currentPlayIndex = -1;
 
         const audioPlayer = document.getElementById('audioPlayer');
 
         async function init() {
             try {
                 await loadData();
-                initSpeechRecognition();
                 document.getElementById('loadingOverlay').classList.add('hidden');
                 document.getElementById('studyView').classList.remove('hidden');
                 renderGrid();
             } catch (err) {
-                document.getElementById('loadingText').innerText = "系統初始化失敗";
+                document.getElementById('loadingText').innerText = "系統初始化失敗，請檢查網路連線";
             }
         }
 
@@ -207,122 +211,7 @@
             });
         }
 
-        function initSpeechRecognition() {
-            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SR) {
-                console.error("此瀏覽器不支援 Web Speech API");
-                return;
-            }
-            recognition = new SR();
-            recognition.lang = 'zh-TW'; // 目前台語辨識最穩定的基礎設定
-            recognition.interimResults = true; // 開啟即時預覽
-            recognition.continuous = false; // 每次辨識完自動停止以利判斷
-
-            recognition.onstart = () => { 
-                isRecognitionActive = true; 
-                updateMicUI(true); 
-                document.getElementById('recognitionResult').innerHTML = '<div class="text-indigo-500 animate-pulse">聆聽中...請說台語</div>';
-            };
-
-            recognition.onend = () => { 
-                isRecognitionActive = false; 
-                updateMicUI(false); 
-            };
-            
-            recognition.onresult = (e) => {
-                const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
-                const resultBox = document.getElementById('recognitionResult');
-                
-                resultBox.innerHTML = `<div>系統偵測：<span class="text-indigo-600 font-bold text-lg">${transcript}</span></div>`;
-                
-                if (e.results[0].isFinal) {
-                    checkSpeakAnswer(transcript.trim());
-                }
-            };
-
-            recognition.onerror = (e) => {
-                isRecognitionActive = false;
-                updateMicUI(false);
-                const resultBox = document.getElementById('recognitionResult');
-                if (e.error === 'no-speech') resultBox.innerText = "🔇 沒聽到聲音，請靠近麥克風試試。";
-                else if (e.error === 'not-allowed') resultBox.innerText = "🚫 麥克風權限被拒絕。";
-                else resultBox.innerText = "❌ 辨識出錯，請重試。";
-            };
-        }
-
-        // 核心邏輯：如何判斷台語發音是否正確
-        function checkSpeakAnswer(text) {
-            if (!text) return;
-            const target = currentQuestion.word;
-            let isCorrect = false;
-
-            // 1. 完全匹配
-            if (text.includes(target)) {
-                isCorrect = true;
-            } 
-            // 2. 模糊匹配 (檢查目標詞中的每個字是否有諧音出現在辨識結果中)
-            else {
-                let matchCount = 0;
-                for (let char of target) {
-                    const fuzzyCandidates = TAIGI_FUZZY_MAP[char] || [char];
-                    if (fuzzyCandidates.some(c => text.includes(c))) {
-                        matchCount++;
-                    }
-                }
-                // 如果目標詞中超過一半的字都被諧音匹配到，則判定正確
-                if (matchCount / target.length >= 0.5) {
-                    isCorrect = true;
-                }
-            }
-
-            const resultBox = document.getElementById('recognitionResult');
-            if (isCorrect) {
-                gameScore += 50;
-                document.getElementById('speakScore').innerText = gameScore;
-                resultBox.innerHTML = `<div class="text-green-600 font-bold text-xl">✅ 辨識成功！</div><div class="text-sm text-slate-400">內容：${text}</div>`;
-                // 播放正確音效或直接下一題
-                setTimeout(nextSpeakQuestion, 1500);
-            } else {
-                resultBox.innerHTML = `<div class="text-rose-500 font-bold">❌ 辨識失敗</div><div class="text-sm">聽起來像：${text}</div><div class="text-xs mt-2">提示：您可以試著唸慢一點</div>`;
-            }
-        }
-
-        function nextSpeakQuestion() {
-            if (!allData.length) return;
-            currentQuestion = allData[Math.floor(Math.random() * allData.length)];
-            document.getElementById('speakTargetWord').innerText = currentQuestion.word;
-            document.getElementById('speakTargetPoj').innerText = currentQuestion.poj;
-            document.getElementById('speakTargetMeaning').innerText = `義：${currentQuestion.meaning || '無'}`;
-            document.getElementById('recognitionResult').innerHTML = '<div class="text-slate-400">等待錄音...</div>';
-            updateMicUI(false);
-        }
-
-        function updateMicUI(active) {
-            const btn = document.getElementById('micBtn');
-            const status = document.getElementById('micStatus');
-            if (active) {
-                btn.classList.add('mic-active');
-                status.innerText = "聆聽中...";
-            } else {
-                btn.classList.remove('mic-active');
-                status.innerText = "點擊按鈕開始錄音";
-            }
-        }
-
-        document.getElementById('micBtn').onclick = () => {
-            if (!recognition) return;
-            if (isRecognitionActive) {
-                recognition.stop();
-            } else {
-                try {
-                    recognition.start();
-                } catch(e) {
-                    console.error("辨識啟動失敗", e);
-                }
-            }
-        };
-
-        // 導覽切換與頁面渲染（保持原功能並串接）
+        // --- 學習視圖功能 ---
         function renderGrid() {
             const grid = document.getElementById('wordGrid');
             const cat = document.getElementById('categorySelect').value;
@@ -330,12 +219,23 @@
             const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
             if (currentPage > totalPages) currentPage = totalPages;
             grid.innerHTML = '';
-            filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize).forEach(item => {
+            
+            const items = filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+            items.forEach(item => {
                 const card = document.createElement('div');
                 card.id = `card-${item.id}`;
-                card.className = 'word-card bg-white p-5 rounded-2xl shadow-sm border-2 border-slate-200 flex justify-between items-center cursor-pointer hover:border-indigo-300';
-                card.innerHTML = `<div><div class="flex flex-col"><span class="text-2xl font-bold">${item.word}</span><span class="text-indigo-500 font-mono">${item.poj}</span></div><div class="text-sm text-slate-400 mt-2">${item.meaning}</div></div><button class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">🔊</button>`;
-                card.onclick = () => { audioPlayer.src = item.audio; audioPlayer.play(); };
+                card.className = 'word-card bg-white p-6 rounded-2xl shadow-sm border-2 border-slate-200 flex justify-between items-center cursor-pointer hover:border-indigo-300';
+                card.innerHTML = `
+                    <div class="flex-grow">
+                        <div class="flex items-center gap-4">
+                            <span class="text-3xl font-bold text-slate-800">${item.word}</span>
+                            <span class="text-3xl font-bold text-indigo-500 font-mono">${item.poj}</span>
+                        </div>
+                        <div class="text-lg text-slate-400 mt-2 font-medium">${item.meaning}</div>
+                    </div>
+                    <button class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-xl">🔊</button>
+                `;
+                card.onclick = () => { stopAutoPlay(); playAudio(item.audio); };
                 grid.appendChild(card);
             });
             document.getElementById('pageInfo').innerText = `PAGE ${currentPage} / ${totalPages}`;
@@ -343,7 +243,226 @@
             document.getElementById('nextPage').disabled = currentPage === totalPages;
         }
 
+        function playAudio(url) {
+            audioPlayer.src = url;
+            audioPlayer.play().catch(e => console.warn("播放受阻", e));
+        }
+
+        // 播放控制邏輯
+        document.getElementById('playPageBtn').onclick = () => startAutoPlay('page');
+        document.getElementById('playAllBtn').onclick = () => startAutoPlay('all');
+
+        function startAutoPlay(mode) {
+            playMode = mode;
+            if (mode === 'page') {
+                playList = filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+            } else {
+                playList = filteredData;
+            }
+            
+            if (!playList.length) return;
+            isAutoPlaying = true;
+            currentPlayIndex = 0;
+            document.getElementById('stopPlayBtn').classList.remove('hidden');
+            playCurrentFromList();
+        }
+
+        function playCurrentFromList() {
+            if (!isAutoPlaying || currentPlayIndex >= playList.length) {
+                stopAutoPlay();
+                return;
+            }
+            
+            const item = playList[currentPlayIndex];
+            
+            // 檢查是否需要跳頁
+            const itemPageIndex = Math.floor(filteredData.indexOf(item) / pageSize) + 1;
+            if (itemPageIndex !== currentPage) {
+                currentPage = itemPageIndex;
+                renderGrid();
+            }
+
+            // 高亮目前卡片
+            document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
+            const activeCard = document.getElementById(`card-${item.id}`);
+            if (activeCard) {
+                activeCard.classList.add('playing');
+                activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            playAudio(item.audio);
+        }
+
+        audioPlayer.onended = () => {
+            if (isAutoPlaying) {
+                currentPlayIndex++;
+                setTimeout(playCurrentFromList, 800);
+            }
+        };
+
+        function stopAutoPlay() {
+            isAutoPlaying = false;
+            audioPlayer.pause();
+            document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
+            document.getElementById('stopPlayBtn').classList.add('hidden');
+        }
+
+        document.getElementById('stopPlayBtn').onclick = stopAutoPlay;
+
+        // --- 聽力模式功能 ---
+        function nextListenQuestion() {
+            currentQuestion = allData[Math.floor(Math.random() * allData.length)];
+            const options = [currentQuestion];
+            while (options.length < 4) {
+                const r = allData[Math.floor(Math.random() * allData.length)];
+                if (!options.find(o => o.id === r.id)) options.push(r);
+            }
+            options.sort(() => Math.random() - 0.5);
+            
+            const container = document.getElementById('listenOptions');
+            container.innerHTML = '';
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'p-5 bg-white border-2 border-slate-100 rounded-2xl font-bold text-xl hover:border-indigo-500 hover:bg-indigo-50 transition-all';
+                btn.innerText = opt.word;
+                btn.onclick = () => {
+                    if (opt.id === currentQuestion.id) {
+                        gameScore += 10;
+                        document.getElementById('listenScore').innerText = gameScore;
+                        nextListenQuestion();
+                    } else {
+                        endGame();
+                    }
+                };
+                container.appendChild(btn);
+            });
+            playAudio(currentQuestion.audio);
+        }
+        document.getElementById('listenMainAudioBtn').onclick = () => playAudio(currentQuestion.audio);
+
+        // --- 拖拉配對模式功能 ---
+        function nextMatchRound() {
+            const items = [...allData].sort(() => Math.random() - 0.5).slice(0, 5);
+            const wordsCol = document.getElementById('matchWordsCol');
+            const pojCol = document.getElementById('matchPojCol');
+            const feedback = document.getElementById('matchFeedback');
+            
+            wordsCol.innerHTML = ''; pojCol.innerHTML = '';
+            feedback.innerText = '請將左側單字拖曳到右側對應音標上';
+
+            // 隨機排序
+            const words = [...items].sort(() => Math.random() - 0.5);
+            const pojs = [...items].sort(() => Math.random() - 0.5);
+
+            words.forEach(it => {
+                const div = document.createElement('div');
+                div.id = `drag-${it.id}`;
+                div.draggable = true;
+                div.className = 'draggable p-4 bg-white border-2 border-indigo-200 rounded-xl font-bold text-2xl shadow-sm text-center active:scale-95 transition-transform';
+                div.innerText = it.word;
+                
+                div.ondragstart = (e) => {
+                    e.dataTransfer.setData('text/plain', it.id);
+                    div.classList.add('opacity-50');
+                };
+                div.ondragend = () => div.classList.remove('opacity-50');
+                
+                wordsCol.appendChild(div);
+            });
+
+            pojs.forEach(it => {
+                const div = document.createElement('div');
+                div.id = `drop-${it.id}`;
+                div.className = 'drop-zone p-4 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl font-mono text-2xl text-center text-slate-500 font-bold';
+                div.innerText = it.poj;
+                
+                div.ondragover = (e) => {
+                    e.preventDefault();
+                    div.classList.add('drag-over');
+                };
+                div.ondragleave = () => div.classList.remove('drag-over');
+                div.ondrop = (e) => {
+                    e.preventDefault();
+                    div.classList.remove('drag-over');
+                    const draggedId = e.dataTransfer.getData('text/plain');
+                    
+                    if (draggedId === it.id) {
+                        // 答對了
+                        gameScore += 20;
+                        document.getElementById('matchScore').innerText = gameScore;
+                        feedback.innerText = `✨ 正確！ ${it.word} = ${it.poj}`;
+                        feedback.className = "mt-8 text-center font-bold text-green-500";
+                        
+                        document.getElementById(`drag-${it.id}`).classList.add('matched-item');
+                        div.className = 'p-4 bg-green-100 border-2 border-green-500 rounded-xl font-bold text-2xl text-center text-green-700';
+                        div.innerText = `✅ ${it.word}`;
+                        
+                        playAudio(it.audio);
+
+                        if (!document.querySelector('.draggable:not(.matched-item)')) {
+                            setTimeout(() => {
+                                feedback.innerText = '太棒了！下一關...';
+                                setTimeout(nextMatchRound, 1000);
+                            }, 500);
+                        }
+                    } else {
+                        // 答錯了
+                        feedback.innerText = '❌ 配對錯誤，再試一次！';
+                        feedback.className = "mt-8 text-center font-bold text-rose-500";
+                        div.classList.add('shake'); // 可以在CSS加個震動效果
+                        setTimeout(() => feedback.className = "mt-8 text-center font-bold text-indigo-600", 1000);
+                    }
+                };
+                pojCol.appendChild(div);
+            });
+        }
+
+        // --- 系統導覽與遊戲邏輯 ---
+        window.selectGameMode = (mode) => {
+            gameMode = mode;
+            document.querySelectorAll('.game-mode-btn').forEach(btn => {
+                btn.classList.remove('border-indigo-600', 'bg-indigo-50');
+                btn.classList.add('border-slate-100', 'bg-white');
+            });
+            const selectedId = mode === 'listen' ? 'modeBtnListen' : 'modeBtnMatch';
+            const selected = document.getElementById(selectedId);
+            selected.classList.remove('border-slate-100', 'bg-white');
+            selected.classList.add('border-indigo-600', 'bg-indigo-50');
+        };
+
+        window.startSelectedGame = () => {
+            gameScore = 0;
+            document.getElementById('gameStartScreen').classList.add('hidden');
+            document.getElementById('gamePlayListen').classList.add('hidden');
+            document.getElementById('gamePlayMatch').classList.add('hidden');
+            
+            if (gameMode === 'listen') {
+                document.getElementById('gamePlayListen').classList.remove('hidden');
+                document.getElementById('listenScore').innerText = '0';
+                nextListenQuestion();
+            } else if (gameMode === 'match') {
+                document.getElementById('gamePlayMatch').classList.remove('hidden');
+                document.getElementById('matchScore').innerText = '0';
+                nextMatchRound();
+            }
+        };
+
+        window.backToMenu = () => {
+            document.getElementById('gamePlayListen').classList.add('hidden');
+            document.getElementById('gamePlayMatch').classList.add('hidden');
+            document.getElementById('gameResultScreen').classList.add('hidden');
+            document.getElementById('gameStartScreen').classList.remove('hidden');
+        };
+
+        function endGame() {
+            document.getElementById('gamePlayListen').classList.add('hidden');
+            document.getElementById('gamePlayMatch').classList.add('hidden');
+            document.getElementById('gameResultScreen').classList.remove('hidden');
+            document.getElementById('finalScore').innerText = gameScore;
+        }
+
         document.getElementById('navStudy').onclick = () => {
+            stopAutoPlay();
             document.getElementById('studyView').classList.remove('hidden');
             document.getElementById('gameView').classList.add('hidden');
             document.getElementById('studyControls').classList.remove('invisible');
@@ -352,6 +471,7 @@
         };
 
         document.getElementById('navGame').onclick = () => {
+            stopAutoPlay();
             document.getElementById('gameView').classList.remove('hidden');
             document.getElementById('studyView').classList.add('hidden');
             document.getElementById('studyControls').classList.add('invisible');
@@ -360,35 +480,9 @@
             backToMenu();
         };
 
-        window.selectGameMode = (mode) => {
-            gameMode = mode;
-            document.querySelectorAll('.game-mode-btn').forEach(btn => btn.classList.replace('border-indigo-600', 'border-slate-100'));
-            document.querySelectorAll('.game-mode-btn').forEach(btn => btn.classList.replace('bg-indigo-50', 'bg-white'));
-            const selected = document.getElementById(`modeBtn${mode.charAt(0).toUpperCase() + mode.slice(1)}`);
-            selected.classList.replace('border-slate-100', 'border-indigo-600');
-            selected.classList.replace('bg-white', 'bg-indigo-50');
-        };
-
-        window.startSelectedGame = () => {
-            gameScore = 0;
-            document.getElementById('gameStartScreen').classList.add('hidden');
-            if (gameMode === 'speak') {
-                document.getElementById('gamePlaySpeak').classList.remove('hidden');
-                nextSpeakQuestion();
-            } else {
-                // 聽力、配對模式啟動邏輯...
-            }
-        };
-
-        window.backToMenu = () => {
-            if (isRecognitionActive) recognition.stop();
-            ['gamePlaySpeak', 'gameResultScreen'].forEach(id => document.getElementById(id).classList.add('hidden'));
-            document.getElementById('gameStartScreen').classList.remove('hidden');
-        };
-
-        document.getElementById('categorySelect').onchange = () => { currentPage = 1; renderGrid(); };
-        document.getElementById('prevPage').onclick = () => { if (currentPage > 1) { currentPage--; renderGrid(); } };
-        document.getElementById('nextPage').onclick = () => { if (currentPage * pageSize < filteredData.length) { currentPage++; renderGrid(); } };
+        document.getElementById('categorySelect').onchange = () => { stopAutoPlay(); currentPage = 1; renderGrid(); };
+        document.getElementById('prevPage').onclick = () => { if (currentPage > 1) { stopAutoPlay(); currentPage--; renderGrid(); } };
+        document.getElementById('nextPage').onclick = () => { if (currentPage * pageSize < filteredData.length) { stopAutoPlay(); currentPage++; renderGrid(); } };
 
         init();
     </script>
