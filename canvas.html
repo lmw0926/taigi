@@ -165,16 +165,36 @@
         let db, auth, appId;
         let isFirebaseReady = false;
 
-        try {
-            // 檢查環境變數是否存在
-            const firebaseConfig = typeof __firebase_config !== 'undefined' 
-                ? JSON.parse(__firebase_config) 
-                : null;
-            
-            appId = typeof __app_id !== 'undefined' ? __app_id : 'default-taigi-app';
-
-            if (firebaseConfig) {
-                const app = initializeApp(firebaseConfig);
+                try {
+                    // 檢查環境變數是否存在
+                    const firebaseConfig = typeof __firebase_config !== 'undefined' 
+                        ? JSON.parse(__firebase_config) 
+                        : null;
+                    
+                    appId = typeof __app_id !== 'undefined' ? __app_id : 'default-taigi-app';
+        
+                    if (firebaseConfig) {
+                        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "firebase/app";
+        import { getAnalytics } from "firebase/analytics";
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+        
+        // Your web app's Firebase configuration
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+          apiKey: "AIzaSyCXrPFVYCVCkzUxpGv38vK3hib3Kuyf6ts",
+          authDomain: "taigi-learning.firebaseapp.com",
+          projectId: "taigi-learning",
+          storageBucket: "taigi-learning.firebasestorage.app",
+          messagingSenderId: "1060738028332",
+          appId: "1:1060738028332:web:9697bec47cd363c25e5289",
+          measurementId: "G-WPJNNB5RE3"
+        };
+        
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
                 auth = getAuth(app);
                 db = getFirestore(app);
                 isFirebaseReady = true;
