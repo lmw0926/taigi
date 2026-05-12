@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台語練習系統 - 收藏與遊戲強化版</title>
+    <title>台語練習系統 - 榮譽榜強化版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
@@ -21,12 +21,8 @@
             transform: scale(1.02);
             box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2);
         }
-        .star-btn {
-            transition: transform 0.2s;
-        }
-        .star-btn:active {
-            transform: scale(1.3);
-        }
+        .star-btn { transition: transform 0.2s; }
+        .star-btn:active { transform: scale(1.3); }
         .loader {
             border: 4px solid #f3f3f3;
             border-top: 4px solid #6366f1;
@@ -35,23 +31,10 @@
             height: 30px;
             animation: spin 1s linear infinite;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .option-btn {
-            transition: all 0.2s;
-        }
-        .correct {
-            background-color: #10b981 !important;
-            color: white !important;
-            border-color: #059669 !important;
-        }
-        .wrong {
-            background-color: #ef4444 !important;
-            color: white !important;
-            border-color: #dc2626 !important;
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .option-btn { transition: all 0.2s; }
+        .correct { background-color: #10b981 !important; color: white !important; border-color: #059669 !important; }
+        .wrong { background-color: #ef4444 !important; color: white !important; border-color: #dc2626 !important; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -71,7 +54,6 @@
                 <select id="categorySelect" class="bg-slate-100 border-none rounded-lg px-3 py-2 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500">
                     <option value="all">所有分類</option>
                 </select>
-                <!-- 星號過濾 -->
                 <button id="filterStarredBtn" class="p-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-yellow-50 hover:text-yellow-600 transition-colors" title="只看收藏">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
                 </button>
@@ -87,7 +69,7 @@
     <main class="flex-grow p-4 sm:p-6 max-w-4xl w-full mx-auto">
         <div id="loadingOverlay" class="flex flex-col items-center justify-center py-20">
             <div class="loader mb-4"></div>
-            <p class="text-slate-500 font-medium">資料庫同步中...</p>
+            <p class="text-slate-500 font-medium">系統準備中...</p>
         </div>
 
         <!-- 學習模式 -->
@@ -106,30 +88,25 @@
 
         <!-- 遊戲模式 -->
         <div id="gameView" class="hidden">
+            <!-- 遊戲開始與範圍選擇 -->
             <div id="gameStartScreen" class="py-12 bg-white rounded-3xl shadow-xl border border-slate-100 px-8 text-center">
                 <div class="text-6xl mb-6">🎧</div>
                 <h2 class="text-3xl font-bold text-slate-800 mb-4">聽力選選樂</h2>
                 
-                <!-- 遊戲範圍選擇區 -->
                 <div class="max-w-sm mx-auto bg-slate-50 rounded-2xl p-6 mb-8 text-left">
                     <p class="text-sm font-bold text-slate-500 mb-4 uppercase tracking-wider">選擇遊戲範圍</p>
-                    
                     <div class="space-y-3">
                         <label class="flex items-center gap-3 cursor-pointer p-2 hover:bg-white rounded-lg transition-colors">
-                            <input type="radio" name="gameRange" value="all" checked class="w-5 h-5 text-indigo-600 focus:ring-indigo-500">
+                            <input type="radio" name="gameRange" value="all" checked class="w-5 h-5 text-indigo-600">
                             <span class="text-slate-700 font-medium">所有單字</span>
                         </label>
-                        
                         <label class="flex items-center gap-3 cursor-pointer p-2 hover:bg-white rounded-lg transition-colors">
-                            <input type="radio" name="gameRange" value="category" class="w-5 h-5 text-indigo-600 focus:ring-indigo-500">
+                            <input type="radio" name="gameRange" value="category" class="w-5 h-5 text-indigo-600">
                             <span class="text-slate-700 font-medium">指定分類：</span>
-                            <select id="gameCategorySelect" class="text-sm border-slate-200 rounded-md focus:ring-indigo-500">
-                                <!-- 動態載入分類 -->
-                            </select>
+                            <select id="gameCategorySelect" class="text-sm border-slate-200 rounded-md"></select>
                         </label>
-
-                        <label id="gameStarOption" class="flex items-center gap-3 cursor-pointer p-2 hover:bg-white rounded-lg transition-colors">
-                            <input type="radio" name="gameRange" value="starred" class="w-5 h-5 text-indigo-600 focus:ring-indigo-500">
+                        <label class="flex items-center gap-3 cursor-pointer p-2 hover:bg-white rounded-lg transition-colors">
+                            <input type="radio" name="gameRange" value="starred" class="w-5 h-5 text-indigo-600">
                             <span class="text-slate-700 font-medium flex items-center gap-2">
                                 我的收藏 (星號)
                                 <span id="starCountBadge" class="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">0</span>
@@ -138,23 +115,34 @@
                     </div>
                 </div>
 
-                <button id="startGameBtn" class="px-12 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg hover:bg-indigo-700 transform active:scale-95 transition-all text-lg w-full max-w-xs">開始挑戰</button>
+                <button id="startGameBtn" class="px-12 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg hover:bg-indigo-700 text-lg w-full max-w-xs mb-8">開始挑戰</button>
+
+                <!-- 榮譽榜 -->
+                <div class="max-w-sm mx-auto">
+                    <h3 class="flex items-center justify-center gap-2 text-slate-600 font-bold mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55.47.98.97 1.21C11.47 18.44 12 19 12 19s.53-.56 1.03-.79c.5-.23.97-.66.97-1.21v-2.34"></path><path d="M12 15c-3.31 0-6-2.69-6-6V7c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v2c0 3.31-2.69 6-6 6Z"></path></svg>
+                        今日榮譽榜
+                    </h3>
+                    <div id="leaderboardList" class="space-y-2 text-sm">
+                        <p class="text-slate-400">載入排名中...</p>
+                    </div>
+                </div>
             </div>
 
+            <!-- 進行中 -->
             <div id="gamePlayScreen" class="hidden">
                 <div class="flex justify-between items-center mb-6">
                     <div class="bg-indigo-100 px-4 py-2 rounded-full text-indigo-700 font-bold">得分: <span id="gameScore">0</span></div>
                     <div class="flex-grow mx-4 h-2.5 bg-slate-200 rounded-full overflow-hidden">
                         <div id="gameTimerBar" class="h-full bg-indigo-500 transition-all duration-100" style="width: 100%"></div>
                     </div>
-                    <button id="quitGameBtn" class="text-slate-400 hover:text-rose-500 transition-colors">
+                    <button id="quitGameBtn" class="text-slate-400 hover:text-rose-500">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
                     </button>
                 </div>
-
                 <div class="bg-white rounded-3xl shadow-xl p-8 mb-6 text-center border-b-8 border-indigo-50">
-                    <div id="gameWordDisplay" class="mb-4 text-slate-400 font-mono tracking-widest text-lg font-bold">？？？</div>
-                    <button id="gameRepeatBtn" class="w-24 h-24 bg-indigo-600 text-white rounded-full mx-auto flex items-center justify-center hover:bg-indigo-700 shadow-lg transition-all mb-4">
+                    <div id="gameWordDisplay" class="mb-4"></div>
+                    <button id="gameRepeatBtn" class="w-24 h-24 bg-indigo-600 text-white rounded-full mx-auto flex items-center justify-center hover:bg-indigo-700 shadow-lg mb-4">
                         <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                     </button>
                     <div id="gameHint" class="text-indigo-400 font-medium">請聽發音</div>
@@ -162,13 +150,20 @@
                 <div id="gameOptions" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
             </div>
 
+            <!-- 結算 -->
             <div id="gameResultScreen" class="hidden text-center py-16 bg-white rounded-3xl shadow-xl p-8">
                 <div class="text-6xl mb-4">🏆</div>
                 <h2 class="text-3xl font-bold text-slate-800">挑戰完成</h2>
                 <div class="text-5xl font-black text-indigo-600 my-4" id="finalScore">0</div>
+                
+                <div id="submitScoreSection" class="max-w-xs mx-auto mt-6 p-4 bg-slate-50 rounded-2xl">
+                    <input type="text" id="userNameInput" placeholder="請輸入您的暱稱" class="w-full px-4 py-3 rounded-xl border border-slate-200 mb-3 text-center focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <button id="submitScoreBtn" class="w-full py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600">上傳榮譽榜</button>
+                </div>
+
                 <div class="flex flex-col sm:flex-row gap-4 mt-8">
-                    <button id="restartGameBtn" class="flex-1 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-md hover:bg-indigo-700">再玩一局</button>
-                    <button id="backToListBtn" class="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200">回到列表</button>
+                    <button id="restartGameBtn" class="flex-1 py-4 bg-indigo-600 text-white font-bold rounded-2xl">再玩一局</button>
+                    <button id="backToListBtn" class="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl">回到列表</button>
                 </div>
             </div>
         </div>
@@ -176,68 +171,70 @@
 
     <audio id="audioPlayer" class="hidden"></audio>
 
-    <script>
-        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSIS-1UF7kUUYsxnNgBtsyYNI9n5GAKh-fxtJkKjaGBk9VXxk07WILC_rLoB2-0wrhVjuJIVgqgIdIL/pub?output=csv';
-        
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Config
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        let user = null;
         let allData = [];
         let filteredData = [];
+        let starredIds = JSON.parse(localStorage.getItem('taigi_stars') || '[]');
         let currentPage = 1;
         const pageSize = 10;
-        
+        let onlyStarred = false;
         let isAutoPlaying = false;
         let autoPlayQueue = [];
-        let onlyStarred = false;
         
-        // 收藏狀態
-        let starredIds = JSON.parse(localStorage.getItem('taigi_stars') || '[]');
-
         let gameScore = 0;
         let currentQuestion = null;
         let gameTimer = null;
         let timeLeft = 0;
-        let gamePool = []; // 遊戲題目池
+        let gamePool = [];
         const MAX_TIME = 10;
 
-        function parseComplexCSV(text) {
-            const result = [];
-            let row = [];
-            let field = "";
-            let inQuotes = false;
-            for (let i = 0; i < text.length; i++) {
-                const char = text[i];
-                const nextChar = text[i+1];
-                if (inQuotes) {
-                    if (char === '"' && nextChar === '"') { field += '"'; i++; }
-                    else if (char === '"') inQuotes = false;
-                    else field += char;
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSIS-1UF7kUUYsxnNgBtsyYNI9n5GAKh-fxtJkKjaGBk9VXxk07WILC_rLoB2-0wrhVjuJIVgqgIdIL/pub?output=csv';
+
+        // 初始化
+        async function init() {
+            // 1. Auth (RULE 3)
+            const initAuth = async () => {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
-                    if (char === '"') inQuotes = true;
-                    else if (char === ',') { row.push(field); field = ""; }
-                    else if (char === '\n' || char === '\r') {
-                        row.push(field);
-                        if (row.length > 1 || row[0] !== "") result.push(row);
-                        row = []; field = "";
-                        if (char === '\r' && nextChar === '\n') i++;
-                    } else field += char;
+                    await signInAnonymously(auth);
                 }
-            }
-            if (field || row.length > 0) { row.push(field); result.push(row); }
-            return result;
+            };
+            await initAuth();
+            onAuthStateChanged(auth, (u) => {
+                user = u;
+                if (user) loadLeaderboard();
+            });
+
+            // 2. Data
+            await loadCSVData();
+            document.getElementById('loadingOverlay').classList.add('hidden');
+            renderGrid();
         }
 
-        async function initApp() {
+        async function loadCSVData() {
             try {
                 const response = await fetch(CSV_URL);
-                const csvText = await response.text();
-                const rows = parseComplexCSV(csvText);
-                
+                const text = await response.text();
+                const rows = parseCSV(text);
                 const data = [];
                 const categories = new Set();
 
                 for (let i = 1; i < rows.length; i++) {
                     const r = rows[i];
                     if (r.length < 7) continue;
-
                     let word = (r[1] || '').trim();
                     let audio = (r[2] || '').trim();
                     if (word.includes('http')) { let t = word; word = (r[0]||'').trim(); audio = t; }
@@ -254,11 +251,9 @@
                     data.push(item);
                     categories.add(item.category);
                 }
-
                 allData = data;
                 filteredData = [...allData];
 
-                // 填充分類下拉選單
                 const categorySelect = document.getElementById('categorySelect');
                 const gameCategorySelect = document.getElementById('gameCategorySelect');
                 Array.from(categories).sort().forEach(cat => {
@@ -267,31 +262,94 @@
                     categorySelect.appendChild(opt.cloneNode(true));
                     gameCategorySelect.appendChild(opt);
                 });
-
                 updateStarBadge();
-                document.getElementById('loadingOverlay').classList.add('hidden');
-                document.getElementById('pagination').classList.remove('hidden');
-                renderGrid();
-            } catch (error) {
-                document.getElementById('loadingOverlay').innerHTML = `<p class="text-rose-500">載入失敗</p>`;
+            } catch (e) { console.error(e); }
+        }
+
+        function parseCSV(text) {
+            const result = [];
+            let row = [], field = "", inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                if (inQuotes) {
+                    if (char === '"' && text[i+1] === '"') { field += '"'; i++; }
+                    else if (char === '"') inQuotes = false;
+                    else field += char;
+                } else {
+                    if (char === '"') inQuotes = true;
+                    else if (char === ',') { row.push(field); field = ""; }
+                    else if (char === '\n' || char === '\r') {
+                        row.push(field);
+                        if (row.length > 1) result.push(row);
+                        row = []; field = "";
+                        if (char === '\r' && text[i+1] === '\n') i++;
+                    } else field += char;
+                }
+            }
+            if (row.length > 0) { row.push(field); result.push(row); }
+            return result;
+        }
+
+        // 榮譽榜監聽 (RULE 1, 2)
+        function loadLeaderboard() {
+            if (!user) return;
+            const q = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+            onSnapshot(q, (snapshot) => {
+                const scores = [];
+                snapshot.forEach(doc => scores.push(doc.data()));
+                // Memory sort (RULE 2)
+                const sorted = scores.sort((a, b) => b.score - a.score).slice(0, 10);
+                const list = document.getElementById('leaderboardList');
+                if (sorted.length === 0) {
+                    list.innerHTML = `<p class="text-slate-400">尚無紀錄，快來搶頭香！</p>`;
+                    return;
+                }
+                list.innerHTML = sorted.map((s, i) => `
+                    <div class="flex items-center justify-between bg-white p-2 px-4 rounded-xl border border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <span class="font-bold text-indigo-400 w-4">${i+1}</span>
+                            <span class="font-medium text-slate-700">${s.name}</span>
+                        </div>
+                        <span class="font-mono font-bold text-indigo-600">${s.score}</span>
+                    </div>
+                `).join('');
+            }, (err) => console.error("Snapshot error:", err));
+        }
+
+        // 上傳分數
+        async function submitScore() {
+            const name = document.getElementById('userNameInput').value.trim();
+            if (!name) { alertMessage("請輸入名字！"); return; }
+            if (!user) return;
+
+            try {
+                const btn = document.getElementById('submitScoreBtn');
+                btn.disabled = true;
+                btn.innerText = "上傳中...";
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard'), {
+                    name: name,
+                    score: gameScore,
+                    timestamp: Date.now()
+                });
+                document.getElementById('submitScoreSection').innerHTML = `<p class="text-green-600 font-bold py-2">✅ 上傳成功！</p>`;
+            } catch (e) {
+                console.error(e);
+                alertMessage("上傳失敗，請再試一次");
             }
         }
 
+        // --- 核心渲染與控制 ---
         function renderGrid() {
             const grid = document.getElementById('wordGrid');
             grid.innerHTML = '';
-            
-            // 同步過濾邏輯
             let viewData = [...allData];
             const cat = document.getElementById('categorySelect').value;
             if (cat !== 'all') viewData = viewData.filter(d => d.category === cat);
             if (onlyStarred) viewData = viewData.filter(d => starredIds.includes(d.id));
-            
             filteredData = viewData;
 
             const start = (currentPage - 1) * pageSize;
             const items = filteredData.slice(start, start + pageSize);
-
             if (items.length === 0) {
                 grid.innerHTML = `<div class="col-span-full py-20 text-center text-slate-400">目前沒有符合條件的單字</div>`;
             }
@@ -307,19 +365,17 @@
                         <div class="flex-grow">
                             <div class="flex items-baseline flex-wrap gap-x-3 gap-y-1 mb-1">
                                 <h2 class="text-2xl font-bold text-slate-800">${item.word}</h2>
-                                <!-- 音標字體加大，與漢字同級 -->
                                 <span class="text-2xl font-medium text-indigo-600">${item.poj}</span>
                             </div>
                             <p class="text-slate-600 text-sm mt-1">${item.meaning}</p>
                         </div>
-                        <button onclick="playSingle('${item.audio}', ${globalIdx})" class="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shrink-0">
+                        <button class="play-btn p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                         </button>
                     </div>
                     <div class="flex items-center justify-between border-t border-slate-50 pt-3">
                         <div class="flex items-center gap-2">
-                            <!-- 星號按鈕改到左下角編號前面 -->
-                            <button onclick="toggleStar('${item.id}')" class="star-btn p-1 ${isStarred ? 'text-yellow-400' : 'text-slate-300'} hover:text-yellow-500">
+                            <button class="star-item-btn p-1 ${isStarred ? 'text-yellow-400' : 'text-slate-300'} hover:text-yellow-500">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
                             </button>
                             <span class="text-[10px] text-slate-400 font-bold">#${item.id}</span>
@@ -327,6 +383,8 @@
                         <span class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">${item.category}</span>
                     </div>
                 `;
+                card.querySelector('.play-btn').onclick = () => playSingle(item.audio, globalIdx);
+                card.querySelector('.star-item-btn').onclick = () => toggleStar(item.id);
                 grid.appendChild(card);
             });
 
@@ -334,27 +392,22 @@
             document.getElementById('pageInfo').innerText = `PAGE ${currentPage} / ${total || 1}`;
             document.getElementById('prevPage').disabled = (currentPage === 1);
             document.getElementById('nextPage').disabled = (currentPage >= total || total === 0);
+            document.getElementById('pagination').classList.toggle('hidden', total <= 1);
         }
 
-        // --- 收藏功能 ---
         function toggleStar(id) {
             const index = starredIds.indexOf(id);
-            if (index === -1) {
-                starredIds.push(id);
-            } else {
-                starredIds.splice(index, 1);
-            }
+            if (index === -1) starredIds.push(id);
+            else starredIds.splice(index, 1);
             localStorage.setItem('taigi_stars', JSON.stringify(starredIds));
             updateStarBadge();
             renderGrid();
         }
 
         function updateStarBadge() {
-            const badge = document.getElementById('starCountBadge');
-            if(badge) badge.innerText = starredIds.length;
+            document.getElementById('starCountBadge').innerText = starredIds.length;
         }
 
-        // --- 播放邏輯 ---
         function playSingle(url, idx) {
             stopAutoPlay();
             const player = document.getElementById('audioPlayer');
@@ -364,33 +417,12 @@
             player.onended = () => unhighlightCard(idx);
         }
 
-        function startPagePlay() {
-            if (isAutoPlaying) { stopAutoPlay(); return; }
-            const start = (currentPage - 1) * pageSize;
-            const items = filteredData.slice(start, start + pageSize);
-            if (items.length === 0) return;
-            isAutoPlaying = true;
-            autoPlayQueue = items.map((item, index) => ({ url: item.audio, idx: start + index }));
-            const playNext = (qIndex) => {
-                if (!isAutoPlaying || qIndex >= autoPlayQueue.length) { stopAutoPlay(); return; }
-                const { url, idx } = autoPlayQueue[qIndex];
-                const player = document.getElementById('audioPlayer');
-                highlightCard(idx);
-                player.src = url;
-                player.play();
-                player.onended = () => { unhighlightCard(idx); setTimeout(() => playNext(qIndex + 1), 500); };
-            };
-            document.getElementById('playPageBtn').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"></rect></svg><span>停止</span>`;
-            document.getElementById('playPageBtn').classList.add('bg-rose-50', 'text-rose-600');
-            playNext(0);
-        }
-
         function stopAutoPlay() {
             isAutoPlaying = false;
             document.getElementById('audioPlayer').pause();
             document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
             document.getElementById('playPageBtn').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>播放整頁</span>`;
-            document.getElementById('playPageBtn').classList.remove('bg-rose-50', 'text-rose-600');
+            document.getElementById('playPageBtn').className = "flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-lg font-bold text-sm";
         }
 
         function highlightCard(idx) {
@@ -398,7 +430,6 @@
             const c = document.getElementById(`card-${idx}`);
             if (c) { c.classList.add('playing'); c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
         }
-
         function unhighlightCard(idx) {
             const c = document.getElementById(`card-${idx}`);
             if (c) c.classList.remove('playing');
@@ -407,19 +438,12 @@
         // --- 遊戲邏輯 ---
         function startQuiz() {
             const range = document.querySelector('input[name="gameRange"]:checked').value;
-            
-            // 根據選擇決定題目池
-            if (range === 'all') {
-                gamePool = [...allData];
-            } else if (range === 'category') {
-                const cat = document.getElementById('gameCategorySelect').value;
-                gamePool = allData.filter(d => d.category === cat);
-            } else if (range === 'starred') {
-                gamePool = allData.filter(d => starredIds.includes(d.id));
-            }
+            if (range === 'all') gamePool = [...allData];
+            else if (range === 'category') gamePool = allData.filter(d => d.category === document.getElementById('gameCategorySelect').value);
+            else if (range === 'starred') gamePool = allData.filter(d => starredIds.includes(d.id));
 
             if (gamePool.length < 4) {
-                customMessage(`範圍內的單字不足 (至少需要 4 個)，目前只有 ${gamePool.length} 個。`);
+                alertMessage(`單字不足 (${gamePool.length})，請選擇更多範圍或收藏更多單字。`);
                 return;
             }
 
@@ -428,47 +452,33 @@
             document.getElementById('gameStartScreen').classList.add('hidden');
             document.getElementById('gameResultScreen').classList.add('hidden');
             document.getElementById('gamePlayScreen').classList.remove('hidden');
+            document.getElementById('submitScoreSection').innerHTML = `
+                <input type="text" id="userNameInput" placeholder="請輸入您的暱稱" class="w-full px-4 py-3 rounded-xl border border-slate-200 mb-3 text-center outline-none">
+                <button id="submitScoreBtn" class="w-full py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600">上傳榮譽榜</button>
+            `;
+            document.getElementById('submitScoreBtn').onclick = submitScore;
             nextQuestion();
         }
 
         function nextQuestion() {
             currentQuestion = gamePool[Math.floor(Math.random() * gamePool.length)];
-            
             document.getElementById('gameWordDisplay').innerHTML = `
-                <div class="text-3xl text-indigo-600 mb-1">${currentQuestion.word}</div>
-                <!-- 遊戲中的音標也同步加大 -->
+                <div class="text-3xl text-indigo-600 mb-1 font-bold">${currentQuestion.word}</div>
                 <div class="text-2xl text-indigo-400 font-mono">${currentQuestion.poj}</div>
             `;
-            
-            // 選項需從全體資料中找干擾項
-            let distractors = allData
-                .filter(d => d.meaning !== currentQuestion.meaning)
-                .sort(() => Math.random() - 0.5)
-                .slice(0, 3)
-                .map(d => d.meaning);
-            
+            let distractors = allData.filter(d => d.meaning !== currentQuestion.meaning).sort(() => Math.random() - 0.5).slice(0, 3).map(d => d.meaning);
             let options = [...distractors, currentQuestion.meaning].sort(() => Math.random() - 0.5);
-            
             const container = document.getElementById('gameOptions');
             container.innerHTML = '';
             options.forEach(opt => {
                 const btn = document.createElement('button');
-                btn.className = 'option-btn p-5 bg-white border-2 border-slate-100 rounded-2xl text-lg font-bold text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 shadow-sm';
+                btn.className = 'option-btn p-5 bg-white border-2 border-slate-100 rounded-2xl text-lg font-bold text-slate-700 hover:border-indigo-200 shadow-sm';
                 btn.innerText = opt;
                 btn.onclick = () => checkAnswer(opt, btn);
                 container.appendChild(btn);
             });
-
             playQuizAudio();
             resetTimer();
-        }
-
-        function playQuizAudio() {
-            const player = document.getElementById('audioPlayer');
-            player.src = currentQuestion.audio;
-            player.play();
-            document.getElementById('gameHint').innerText = "播放中...";
-            player.onended = () => document.getElementById('gameHint').innerText = "這句話是什麼意思？";
         }
 
         function resetTimer() {
@@ -486,7 +496,6 @@
             clearInterval(gameTimer);
             const btns = document.querySelectorAll('.option-btn');
             btns.forEach(b => b.disabled = true);
-            
             if (selected === currentQuestion.meaning) {
                 btn.classList.add('correct');
                 gameScore += Math.ceil(timeLeft * 10) + 10;
@@ -506,19 +515,23 @@
             document.getElementById('finalScore').innerText = gameScore;
         }
 
-        function customMessage(msg) {
-            const div = document.createElement('div');
-            div.className = "fixed top-20 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl z-50 text-sm font-bold text-center min-w-[200px]";
-            div.innerText = msg;
-            document.body.appendChild(div);
-            setTimeout(() => div.remove(), 3000);
+        function playQuizAudio() {
+            const p = document.getElementById('audioPlayer');
+            p.src = currentQuestion.audio; p.play();
+            document.getElementById('gameHint').innerText = "播放中...";
+            p.onended = () => document.getElementById('gameHint').innerText = "這句話是什麼意思？";
         }
 
-        // --- 事件綁定 ---
-        document.getElementById('playPageBtn').onclick = startPagePlay;
+        function alertMessage(msg) {
+            const div = document.createElement('div');
+            div.className = "fixed top-24 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full z-50 text-sm font-bold shadow-xl";
+            div.innerText = msg;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 2500);
+        }
 
+        // --- 導覽切換 ---
         document.getElementById('navStudy').onclick = () => {
-            stopAutoPlay();
             document.getElementById('navStudy').className = "px-4 py-1.5 rounded-lg text-sm font-bold bg-white shadow-sm text-indigo-600";
             document.getElementById('navGame').className = "px-4 py-1.5 rounded-lg text-sm font-bold text-slate-500 hover:text-indigo-600 transition-all";
             document.getElementById('studyView').classList.remove('hidden');
@@ -527,7 +540,6 @@
         };
 
         document.getElementById('navGame').onclick = () => {
-            stopAutoPlay();
             document.getElementById('navGame').className = "px-4 py-1.5 rounded-lg text-sm font-bold bg-white shadow-sm text-indigo-600";
             document.getElementById('navStudy').className = "px-4 py-1.5 rounded-lg text-sm font-bold text-slate-500 hover:text-indigo-600 transition-all";
             document.getElementById('gameView').classList.remove('hidden');
@@ -537,36 +549,26 @@
             document.getElementById('gamePlayScreen').classList.add('hidden');
             document.getElementById('gameResultScreen').classList.add('hidden');
             updateStarBadge();
+            loadLeaderboard();
         };
 
-        document.getElementById('filterStarredBtn').onclick = (e) => {
+        // 按鈕綁定
+        document.getElementById('categorySelect').onchange = () => { currentPage = 1; renderGrid(); };
+        document.getElementById('filterStarredBtn').onclick = () => {
             onlyStarred = !onlyStarred;
             const btn = document.getElementById('filterStarredBtn');
-            if (onlyStarred) {
-                btn.classList.replace('text-slate-500', 'text-yellow-600');
-                btn.classList.replace('bg-slate-100', 'bg-yellow-100');
-            } else {
-                btn.classList.replace('text-yellow-600', 'text-slate-500');
-                btn.classList.replace('bg-yellow-100', 'bg-slate-100');
-            }
-            currentPage = 1;
-            renderGrid();
+            btn.className = onlyStarred ? "p-2 bg-yellow-100 text-yellow-600 rounded-lg transition-colors" : "p-2 bg-slate-100 text-slate-500 rounded-lg transition-colors";
+            currentPage = 1; renderGrid();
         };
-
+        document.getElementById('prevPage').onclick = () => { if (currentPage > 1) { currentPage--; renderGrid(); window.scrollTo(0, 0); } };
+        document.getElementById('nextPage').onclick = () => { if (currentPage < Math.ceil(filteredData.length / pageSize)) { currentPage++; renderGrid(); window.scrollTo(0, 0); } };
         document.getElementById('startGameBtn').onclick = startQuiz;
         document.getElementById('restartGameBtn').onclick = startQuiz;
-        document.getElementById('backToListBtn').onclick = () => document.getElementById('navStudy').click();
         document.getElementById('gameRepeatBtn').onclick = playQuizAudio;
         document.getElementById('quitGameBtn').onclick = endGame;
+        document.getElementById('backToListBtn').onclick = () => document.getElementById('navStudy').click();
 
-        document.getElementById('categorySelect').onchange = () => {
-            stopAutoPlay(); currentPage = 1; renderGrid();
-        };
-
-        document.getElementById('prevPage').onclick = () => { if (currentPage > 1) { stopAutoPlay(); currentPage--; renderGrid(); } };
-        document.getElementById('nextPage').onclick = () => { if (currentPage < Math.ceil(filteredData.length / pageSize)) { stopAutoPlay(); currentPage++; renderGrid(); } };
-
-        initApp();
+        init();
     </script>
 </body>
 </html>
