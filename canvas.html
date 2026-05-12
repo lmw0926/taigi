@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台語學習系統 - GitHub 兼容版</title>
+    <title>台語學習系統 - 錄音修復版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
@@ -47,6 +47,9 @@
     </header>
 
     <main class="flex-grow p-4 sm:p-6 max-w-4xl w-full mx-auto">
+        <!-- 訊息通知 -->
+        <div id="toast" class="hidden fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-slate-800 text-white px-6 py-3 rounded-2xl shadow-2xl transition-all duration-300"></div>
+
         <!-- 載入中畫面 -->
         <div id="loadingOverlay" class="flex flex-col items-center justify-center py-20">
             <div class="loader mb-4"></div>
@@ -127,9 +130,9 @@
                 <div class="bg-white rounded-3xl shadow-xl p-8 mb-6 text-center">
                     <div id="speakTargetWord" class="text-5xl font-bold text-slate-800 mb-2">---</div>
                     <div id="speakTargetPoj" class="text-2xl text-indigo-500 mb-8">---</div>
-                    <div id="recognitionResult" class="min-h-[60px] flex items-center justify-center text-slate-400 italic mb-8 p-4 bg-slate-50 rounded-2xl border-2 border-dashed">等待錄音...</div>
-                    <button id="micBtn" class="w-20 h-20 bg-rose-500 text-white rounded-full mx-auto flex items-center justify-center shadow-lg transition-all text-2xl">🎙️</button>
-                    <div id="micStatus" class="mt-4 text-rose-500 font-bold">點擊錄音</div>
+                    <div id="recognitionResult" class="min-h-[60px] flex items-center justify-center text-slate-400 italic mb-8 p-4 bg-slate-50 rounded-2xl border-2 border-dashed">點擊下方麥克風，對著電腦說出這個詞</div>
+                    <button id="micBtn" class="w-24 h-24 bg-rose-500 text-white rounded-full mx-auto flex items-center justify-center shadow-lg transition-all text-3xl">🎙️</button>
+                    <div id="micStatus" class="mt-4 text-rose-500 font-bold">點擊開始錄音</div>
                 </div>
             </div>
 
@@ -158,27 +161,30 @@
         let gameMode = 'listen';
         let gameScore = 0;
         let currentQuestion = null;
-        let selectedWordId = null;
-        let selectedPojId = null;
         let recognition = null;
         let isRecognitionActive = false;
 
         const audioPlayer = document.getElementById('audioPlayer');
 
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
         async function init() {
-            // 安全地嘗試 Firebase 初始化（僅在環境變數存在時執行）
             try {
-                if (typeof __firebase_config !== 'undefined') {
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
                     const firebaseConfig = JSON.parse(__firebase_config);
                     const app = initializeApp(firebaseConfig);
                     const auth = getAuth(app);
                     await signInAnonymously(auth);
                 }
             } catch (err) {
-                console.warn("Firebase 初始化跳過或失敗，將使用直接載入模式。");
+                console.warn("Firebase 初始化跳過。");
             }
 
-            // 直接開始載入資料，不論 Firebase 是否成功
             try {
                 await loadData();
                 initSpeechRecognition();
@@ -187,21 +193,17 @@
                 document.getElementById('studyView').classList.remove('hidden');
                 renderGrid();
             } catch (err) {
-                console.error("資料載入失敗:", err);
-                document.getElementById('loadingText').innerHTML = `載入失敗：${err.message}<br><br>請檢查 Google 試算表是否已發佈為 CSV 格式。`;
+                document.getElementById('loadingText').innerHTML = `載入失敗：${err.message}`;
             }
         }
 
         async function loadData() {
             const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSIS-1UF7kUUYsxnNgBtsyYNI9n5GAKh-fxtJkKjaGBk9VXxk07WILC_rLoB2-0wrhVjuJIVgqgIdIL/pub?output=csv';
-            
             const response = await fetch(CSV_URL);
-            if (!response.ok) throw new Error("網路連線錯誤");
+            if (!response.ok) throw new Error("無法下載 CSV");
             
             const text = await response.text();
             const rows = parseCSV(text);
-            if (rows.length <= 1) throw new Error("CSV 資料不足");
-
             const headers = rows[0].map(h => h.trim());
             const idxWord = headers.indexOf("詞條") !== -1 ? headers.indexOf("詞條") : 1;
             const idxAudio = headers.indexOf("語音") !== -1 ? headers.indexOf("語音") : 2;
@@ -219,14 +221,12 @@
             })).filter(d => d.word && d.audio);
 
             document.getElementById('dataStatus').innerText = `資料: ${allData.length}`;
-            
             const cats = ['all', ...new Set(allData.map(d => d.category))];
             const sel = document.getElementById('categorySelect');
             sel.innerHTML = '';
             cats.forEach(c => {
                 const opt = document.createElement('option');
-                opt.value = c;
-                opt.textContent = c === 'all' ? '所有分類' : c;
+                opt.value = c; opt.textContent = c === 'all' ? '所有分類' : c;
                 sel.appendChild(opt);
             });
         }
@@ -245,7 +245,7 @@
                     else if (char === ',') { curr.push(field); field = ''; }
                     else if (char === '\r' || char === '\n') {
                         curr.push(field); field = '';
-                        if (curr.some(f => f.trim() !== '')) rows.push(curr);
+                        if (curr.length || field) rows.push(curr);
                         curr = [];
                         if (char === '\r' && next === '\n') i++;
                     } else field += char;
@@ -259,14 +259,10 @@
             const grid = document.getElementById('wordGrid');
             const cat = document.getElementById('categorySelect').value;
             filteredData = cat === 'all' ? allData : allData.filter(d => d.category === cat);
-            
             const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
             if (currentPage > totalPages) currentPage = totalPages;
-
             grid.innerHTML = '';
-            const start = (currentPage - 1) * pageSize;
-            const pageItems = filteredData.slice(start, start + pageSize);
-
+            const pageItems = filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
             pageItems.forEach((item) => {
                 const card = document.createElement('div');
                 card.id = `card-${item.id}`;
@@ -281,27 +277,19 @@
                     </div>
                     <button class="play-btn w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all text-xl">🔊</button>
                 `;
-                
-                const playBtn = card.querySelector('.play-btn');
-                playBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    startAutoPlayFrom(item.id);
-                };
+                card.onclick = () => startAutoPlayFrom(item.id);
                 grid.appendChild(card);
             });
-
             document.getElementById('pageInfo').innerText = `PAGE ${currentPage} / ${totalPages}`;
             document.getElementById('prevPage').disabled = currentPage === 1;
             document.getElementById('nextPage').disabled = currentPage === totalPages;
         }
 
-        // --- 連播功能 ---
         function startAutoPlayFrom(wordId) {
             stopAutoPlay();
             playList = [...filteredData];
-            const startIndex = playList.findIndex(item => item.id === wordId);
-            if (startIndex !== -1) {
-                currentPlayIndex = startIndex;
+            currentPlayIndex = playList.findIndex(item => item.id === wordId);
+            if (currentPlayIndex !== -1) {
                 isAutoPlaying = true;
                 document.getElementById('stopPlayBtn').classList.remove('hidden');
                 playNextInList();
@@ -309,10 +297,7 @@
         }
 
         function playNextInList() {
-            if (!isAutoPlaying || currentPlayIndex >= playList.length) {
-                stopAutoPlay();
-                return;
-            }
+            if (!isAutoPlaying || currentPlayIndex >= playList.length) { stopAutoPlay(); return; }
             const item = playList[currentPlayIndex];
             document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
             const activeCard = document.getElementById(`card-${item.id}`);
@@ -321,56 +306,135 @@
                 activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
             audioPlayer.src = item.audio;
-            audioPlayer.play().catch(e => {
-                console.error("播放失敗:", e);
-                currentPlayIndex++;
-                playNextInList();
-            });
+            audioPlayer.play().catch(() => { currentPlayIndex++; playNextInList(); });
         }
 
-        audioPlayer.onended = () => {
-            if (isAutoPlaying) {
-                currentPlayIndex++;
-                setTimeout(playNextInList, 800);
-            }
-        };
+        audioPlayer.onended = () => { if (isAutoPlaying) { currentPlayIndex++; setTimeout(playNextInList, 800); } };
+        function stopAutoPlay() { isAutoPlaying = false; audioPlayer.pause(); document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing')); document.getElementById('stopPlayBtn').classList.add('hidden'); }
 
-        function stopAutoPlay() {
-            isAutoPlaying = false;
-            audioPlayer.pause();
-            document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
-            document.getElementById('stopPlayBtn').classList.add('hidden');
-        }
-
-        // --- 遊戲邏輯 ---
         window.selectGameMode = (mode) => {
             gameMode = mode;
-            document.querySelectorAll('.game-mode-btn').forEach(btn => {
-                btn.className = 'game-mode-btn p-4 border-2 border-slate-100 bg-white rounded-2xl text-left';
-            });
+            document.querySelectorAll('.game-mode-btn').forEach(btn => btn.classList.replace('border-indigo-600', 'border-slate-100'));
+            document.querySelectorAll('.game-mode-btn').forEach(btn => btn.classList.replace('bg-indigo-50', 'bg-white'));
             const selected = document.getElementById(`modeBtn${mode.charAt(0).toUpperCase() + mode.slice(1)}`);
-            if (selected) {
-                selected.className = 'game-mode-btn p-4 border-2 border-indigo-600 bg-indigo-50 rounded-2xl text-left';
-            }
+            selected.classList.replace('border-slate-100', 'border-indigo-600');
+            selected.classList.replace('bg-white', 'bg-indigo-50');
         };
 
         window.startSelectedGame = () => {
             stopAutoPlay();
             gameScore = 0;
             document.getElementById('gameStartScreen').classList.add('hidden');
-            document.getElementById('gamePlayListen').classList.add('hidden');
-            document.getElementById('gamePlayMatch').classList.add('hidden');
-            document.getElementById('gamePlaySpeak').classList.add('hidden');
+            ['Listen', 'Match', 'Speak'].forEach(m => document.getElementById(`gamePlay${m}`).classList.add('hidden'));
+            const modeKey = gameMode.charAt(0).toUpperCase() + gameMode.slice(1);
+            document.getElementById(`gamePlay${modeKey}`).classList.remove('hidden');
+            if (gameMode === 'listen') nextListenQuestion();
+            else if (gameMode === 'match') nextMatchRound();
+            else if (gameMode === 'speak') {
+                if (!recognition) {
+                    showToast("此瀏覽器或環境不支援語音辨識（需 HTTPS 且使用 Chrome）");
+                    backToMenu();
+                } else {
+                    nextSpeakQuestion();
+                }
+            }
+        };
+
+        // 口說模式修復與增強
+        function nextSpeakQuestion() {
+            if (isRecognitionActive) {
+                try {
+                    recognition.stop();
+                } catch(e) {}
+            }
+            currentQuestion = allData[Math.floor(Math.random() * allData.length)];
+            document.getElementById('speakTargetWord').innerText = currentQuestion.word;
+            document.getElementById('speakTargetPoj').innerText = currentQuestion.poj;
+            document.getElementById('recognitionResult').innerText = "點擊下方麥克風並開始說話...";
+            document.getElementById('recognitionResult').className = "min-h-[60px] flex items-center justify-center text-slate-400 italic mb-8 p-4 bg-slate-50 rounded-2xl border-2 border-dashed";
+            updateMicUI(false);
+        }
+
+        function initSpeechRecognition() {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) return;
             
-            if (gameMode === 'listen') {
-                document.getElementById('gamePlayListen').classList.remove('hidden');
-                nextListenQuestion();
-            } else if (gameMode === 'match') {
-                document.getElementById('gamePlayMatch').classList.remove('hidden');
-                nextMatchRound();
-            } else if (gameMode === 'speak') {
-                document.getElementById('gamePlaySpeak').classList.remove('hidden');
-                nextSpeakQuestion();
+            recognition = new SR();
+            recognition.lang = 'zh-TW';
+            recognition.interimResults = false;
+            recognition.continuous = false;
+
+            recognition.onstart = () => {
+                isRecognitionActive = true;
+                updateMicUI(true);
+            };
+
+            recognition.onend = () => {
+                isRecognitionActive = false;
+                updateMicUI(false);
+            };
+
+            recognition.onerror = (event) => {
+                isRecognitionActive = false;
+                updateMicUI(false);
+                const resultBox = document.getElementById('recognitionResult');
+                
+                if (event.error === 'no-speech') {
+                    resultBox.innerText = "🔇 沒聽到聲音，請再試一次！";
+                    showToast("請大聲一點或檢查麥克風。");
+                } else if (event.error === 'not-allowed') {
+                    showToast("請允許麥克風權限才能進行錄音遊戲。");
+                } else {
+                    console.error("Speech recognition error:", event.error);
+                }
+            };
+
+            recognition.onresult = (e) => {
+                const text = e.results[0][0].transcript;
+                const resultBox = document.getElementById('recognitionResult');
+                resultBox.innerText = `聽到：「${text}」`;
+                
+                // 判斷是否包含目標詞（模糊匹配）
+                if (text.includes(currentQuestion.word) || currentQuestion.word.includes(text)) {
+                    gameScore += 50;
+                    document.getElementById('speakScore').innerText = gameScore;
+                    resultBox.innerText = `✅ 正確！你說了：${text}`;
+                    resultBox.className = "min-h-[60px] flex items-center justify-center italic mb-8 p-4 bg-green-50 rounded-2xl border-2 border-green-300 text-green-600";
+                    setTimeout(nextSpeakQuestion, 1500);
+                } else {
+                    resultBox.innerText = `❌ 聽起來像：「${text}」，再試一次！`;
+                    resultBox.className = "min-h-[60px] flex items-center justify-center italic mb-8 p-4 bg-rose-50 rounded-2xl border-2 border-rose-300 text-rose-600";
+                }
+            };
+        }
+
+        function updateMicUI(active) {
+            const btn = document.getElementById('micBtn');
+            const status = document.getElementById('micStatus');
+            if (active) {
+                btn.classList.add('mic-active');
+                status.innerText = "聆聽中...請說話";
+            } else {
+                btn.classList.remove('mic-active');
+                status.innerText = "點擊開始錄音";
+            }
+        }
+
+        document.getElementById('micBtn').onclick = () => {
+            if (!recognition) {
+                showToast("此瀏覽器不支援語音辨識。");
+                return;
+            }
+            if (isRecognitionActive) {
+                recognition.stop();
+            } else {
+                try {
+                    // 清除之前的結果顯示
+                    document.getElementById('recognitionResult').innerText = "準備中...";
+                    recognition.start();
+                } catch (e) {
+                    console.error("Start failed:", e);
+                }
             }
         };
 
@@ -380,8 +444,8 @@
             document.getElementById('listenWordDisplay').innerText = "點擊按鈕聽語音";
             const options = [currentQuestion];
             while(options.length < 4) {
-                const randomItem = allData[Math.floor(Math.random() * allData.length)];
-                if(!options.find(o => o.id === randomItem.id)) options.push(randomItem);
+                const r = allData[Math.floor(Math.random() * allData.length)];
+                if(!options.find(o => o.id === r.id)) options.push(r);
             }
             options.sort(() => Math.random() - 0.5);
             const container = document.getElementById('listenOptions');
@@ -395,175 +459,87 @@
                         gameScore += 10;
                         document.getElementById('listenScore').innerText = gameScore;
                         nextListenQuestion();
-                    } else { endGame(); }
+                    } else endGame();
                 };
                 container.appendChild(btn);
             });
             window.replayListenAudio();
         }
 
-        window.replayListenAudio = () => {
-            audioPlayer.src = currentQuestion.audio;
-            audioPlayer.play();
-        };
+        window.replayListenAudio = () => { audioPlayer.src = currentQuestion.audio; audioPlayer.play(); };
 
         // 配對模式
+        let selW = null, selP = null;
         function nextMatchRound() {
             const items = [...allData].sort(() => Math.random() - 0.5).slice(0, 4);
-            const words = [...items].sort(() => Math.random() - 0.5);
-            const pojs = [...items].sort(() => Math.random() - 0.5);
             const wBox = document.getElementById('matchWords'), pBox = document.getElementById('matchPoj');
             wBox.innerHTML = ''; pBox.innerHTML = '';
-            selectedWordId = null; selectedPojId = null;
-
-            words.forEach(item => {
+            selW = null; selP = null;
+            [...items].sort(() => Math.random() - 0.5).forEach(it => {
                 const b = document.createElement('button');
-                b.className = 'match-btn w-full p-4 bg-white border-2 rounded-xl font-bold transition-all';
-                b.innerText = item.word;
-                b.dataset.id = item.id;
-                b.onclick = () => {
-                    document.querySelectorAll('#matchWords .match-btn').forEach(btn => btn.classList.remove('selected'));
-                    b.classList.add('selected');
-                    selectedWordId = item.id;
-                    checkMatch();
+                b.className = 'match-btn w-full p-4 bg-white border-2 rounded-xl font-bold';
+                b.innerText = it.word; b.onclick = () => {
+                    wBox.querySelectorAll('.match-btn').forEach(btn => btn.classList.remove('selected'));
+                    b.classList.add('selected'); selW = it.id; checkMatch();
                 };
                 wBox.appendChild(b);
             });
-
-            pojs.forEach(item => {
+            [...items].sort(() => Math.random() - 0.5).forEach(it => {
                 const b = document.createElement('button');
-                b.className = 'match-btn w-full p-4 bg-white border-2 rounded-xl font-mono transition-all';
-                b.innerText = item.poj;
-                b.dataset.id = item.id;
-                b.onclick = () => {
-                    document.querySelectorAll('#matchPoj .match-btn').forEach(btn => btn.classList.remove('selected'));
-                    b.classList.add('selected');
-                    selectedPojId = item.id;
-                    checkMatch();
+                b.className = 'match-btn w-full p-4 bg-white border-2 rounded-xl font-mono text-sm';
+                b.innerText = it.poj; b.onclick = () => {
+                    pBox.querySelectorAll('.match-btn').forEach(btn => btn.classList.remove('selected'));
+                    b.classList.add('selected'); selP = it.id; checkMatch();
                 };
                 pBox.appendChild(b);
             });
         }
-
         function checkMatch() {
-            if (selectedWordId && selectedPojId) {
-                if (selectedWordId === selectedPojId) {
-                    gameScore += 20;
-                    document.getElementById('matchScore').innerText = gameScore;
-                    document.querySelectorAll(`[data-id="${selectedWordId}"]`).forEach(btn => btn.classList.add('matched'));
-                    selectedWordId = null; selectedPojId = null;
-                    if (document.querySelectorAll('.match-btn:not(.matched)').length === 0) {
-                        setTimeout(nextMatchRound, 1000);
-                    }
+            if (selW && selP) {
+                if (selW === selP) {
+                    gameScore += 20; document.getElementById('matchScore').innerText = gameScore;
+                    document.querySelectorAll('.match-btn.selected').forEach(b => b.classList.add('matched'));
+                    selW = null; selP = null;
+                    if (!document.querySelector('.match-btn:not(.matched)')) setTimeout(nextMatchRound, 1000);
                 } else {
-                    document.querySelectorAll('.match-btn').forEach(btn => btn.classList.remove('selected'));
-                    selectedWordId = null; selectedPojId = null;
+                    setTimeout(() => document.querySelectorAll('.match-btn').forEach(b => b.classList.remove('selected')), 300);
+                    selW = null; selP = null;
                 }
             }
         }
 
-        // 口說模式
-        function nextSpeakQuestion() {
-            if (isRecognitionActive) recognition.stop();
-            currentQuestion = allData[Math.floor(Math.random() * allData.length)];
-            document.getElementById('speakTargetWord').innerText = currentQuestion.word;
-            document.getElementById('speakTargetPoj').innerText = currentQuestion.poj;
-            document.getElementById('recognitionResult').innerText = "等待錄音...";
-        }
-
-        function initSpeechRecognition() {
-            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SR) return;
-            recognition = new SR();
-            recognition.lang = 'zh-TW';
-            recognition.onstart = () => { isRecognitionActive = true; updateMicUI(true); };
-            recognition.onend = () => { isRecognitionActive = false; updateMicUI(false); };
-            recognition.onresult = (e) => {
-                const text = e.results[0][0].transcript;
-                document.getElementById('recognitionResult').innerText = `聽到：「${text}」`;
-                if (text.includes(currentQuestion.word)) {
-                    gameScore += 50;
-                    document.getElementById('speakScore').innerText = gameScore;
-                    document.getElementById('recognitionResult').innerText = "✅ 正確！";
-                    setTimeout(nextSpeakQuestion, 1200);
-                }
-            };
-        }
-
-        function updateMicUI(active) {
-            const btn = document.getElementById('micBtn');
-            const status = document.getElementById('micStatus');
-            if (active) { btn.classList.add('mic-active'); status.innerText = "聆聽中..."; }
-            else { btn.classList.remove('mic-active'); status.innerText = "點擊錄音"; }
-        }
-
         window.backToMenu = () => {
-            stopAutoPlay();
-            if (isRecognitionActive) recognition.stop();
-            document.getElementById('gamePlayListen').classList.add('hidden');
-            document.getElementById('gamePlayMatch').classList.add('hidden');
-            document.getElementById('gamePlaySpeak').classList.add('hidden');
-            document.getElementById('gameResultScreen').classList.add('hidden');
+            if (isRecognitionActive) {
+                try { recognition.stop(); } catch(e) {}
+            }
+            ['gamePlayListen', 'gamePlayMatch', 'gamePlaySpeak', 'gameResultScreen'].forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('gameStartScreen').classList.remove('hidden');
         };
 
         function endGame() {
-            if (isRecognitionActive) recognition.stop();
-            document.getElementById('gamePlayListen').classList.add('hidden');
-            document.getElementById('gamePlayMatch').classList.add('hidden');
-            document.getElementById('gamePlaySpeak').classList.add('hidden');
+            ['gamePlayListen', 'gamePlayMatch', 'gamePlaySpeak'].forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('gameResultScreen').classList.remove('hidden');
             document.getElementById('finalScore').innerText = gameScore;
         }
-        window.endGame = endGame;
 
-        // --- 事件綁定 ---
-        document.getElementById('playPageBtn').onclick = () => {
-            if (filteredData.length > 0) {
-                const startIdx = (currentPage - 1) * pageSize;
-                const startId = filteredData[startIdx].id;
-                startAutoPlayFrom(startId);
-                const originalEnded = audioPlayer.onended;
-                audioPlayer.onended = () => {
-                    if (currentPlayIndex >= (currentPage * pageSize) - 1 || currentPlayIndex >= filteredData.length - 1) {
-                        stopAutoPlay();
-                        audioPlayer.onended = originalEnded;
-                    } else {
-                        currentPlayIndex++;
-                        setTimeout(playNextInList, 800);
-                    }
-                };
-            }
-        };
-
-        document.getElementById('playAllBtn').onclick = () => {
-            if (filteredData.length > 0) startAutoPlayFrom(filteredData[0].id);
-        };
-
-        document.getElementById('stopPlayBtn').onclick = stopAutoPlay;
-        document.getElementById('categorySelect').onchange = () => { stopAutoPlay(); currentPage = 1; renderGrid(); };
-        document.getElementById('prevPage').onclick = () => { stopAutoPlay(); if (currentPage > 1) { currentPage--; renderGrid(); } };
-        document.getElementById('nextPage').onclick = () => { stopAutoPlay(); if (currentPage * pageSize < filteredData.length) { currentPage++; renderGrid(); } };
-        
+        // 基本導覽與分頁
         document.getElementById('navStudy').onclick = () => {
             document.getElementById('studyView').classList.remove('hidden');
             document.getElementById('gameView').classList.add('hidden');
             document.getElementById('navStudy').className = 'px-4 py-1.5 rounded-lg text-sm font-bold bg-white shadow-sm text-indigo-600';
-            document.getElementById('navGame').className = 'px-4 py-1.5 rounded-lg text-sm font-bold text-slate-500 hover:text-indigo-600 transition-all';
+            document.getElementById('navGame').className = 'px-4 py-1.5 rounded-lg text-sm font-bold text-slate-500';
         };
-
         document.getElementById('navGame').onclick = () => {
-            stopAutoPlay();
             document.getElementById('gameView').classList.remove('hidden');
             document.getElementById('studyView').classList.add('hidden');
             document.getElementById('navGame').className = 'px-4 py-1.5 rounded-lg text-sm font-bold bg-white shadow-sm text-indigo-600';
-            document.getElementById('navStudy').className = 'px-4 py-1.5 rounded-lg text-sm font-bold text-slate-500 hover:text-indigo-600 transition-all';
+            document.getElementById('navStudy').className = 'px-4 py-1.5 rounded-lg text-sm font-bold text-slate-500';
         };
-
-        document.getElementById('micBtn').onclick = () => {
-            if (isRecognitionActive) recognition.stop();
-            else recognition.start();
-        };
+        document.getElementById('categorySelect').onchange = () => { currentPage = 1; renderGrid(); };
+        document.getElementById('prevPage').onclick = () => { if (currentPage > 1) { currentPage--; renderGrid(); } };
+        document.getElementById('nextPage').onclick = () => { if (currentPage * pageSize < filteredData.length) { currentPage++; renderGrid(); } };
+        document.getElementById('playAllBtn').onclick = () => { if (filteredData.length) startAutoPlayFrom(filteredData[0].id); };
+        document.getElementById('stopPlayBtn').onclick = stopAutoPlay;
 
         init();
     </script>
