@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台語學習系統 - 智慧連播增強版</title>
+    <title>台語學習系統 - GitHub 兼容版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
@@ -12,7 +12,7 @@
             background-color: #f1f5f9;
         }
         .word-card { transition: all 0.2s ease; }
-        .word-card.playing { border-color: #6366f1; background-color: #eef2ff; ring: 2px; ring-color: #6366f1; }
+        .word-card.playing { border-color: #6366f1; background-color: #eef2ff; box-shadow: 0 0 0 2px #6366f1; }
         .mic-active { animation: pulse-red 1.5s infinite; background-color: #ef4444 !important; }
         @keyframes pulse-red {
             0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
@@ -47,9 +47,10 @@
     </header>
 
     <main class="flex-grow p-4 sm:p-6 max-w-4xl w-full mx-auto">
+        <!-- 載入中畫面 -->
         <div id="loadingOverlay" class="flex flex-col items-center justify-center py-20">
             <div class="loader mb-4"></div>
-            <p id="loadingText" class="text-slate-500 font-medium">正在從雲端載入台語資料庫...</p>
+            <p id="loadingText" class="text-slate-500 font-medium text-center px-4">正在從雲端載入台語資料庫...</p>
         </div>
 
         <!-- 學習視圖 -->
@@ -138,9 +139,7 @@
                 <button onclick="backToMenu()" class="px-8 py-3 bg-slate-100 rounded-xl">返回主選單</button>
             </div>
         </div>
-    </header>
-
-    <main class="flex-grow"></main> <!-- 佔位，結構已由上方 div 控制 -->
+    </main>
 
     <audio id="audioPlayer" class="hidden"></audio>
 
@@ -148,85 +147,88 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-
         let allData = [];
         let filteredData = [];
         let currentPage = 1;
         const pageSize = 8;
         
-        // 播放器狀態
         let playList = [];
         let currentPlayIndex = -1;
         let isAutoPlaying = false;
-
-        // 遊戲狀態
         let gameMode = 'listen';
         let gameScore = 0;
         let currentQuestion = null;
         let selectedWordId = null;
         let selectedPojId = null;
-
-        // 語音辨識
         let recognition = null;
         let isRecognitionActive = false;
 
+        const audioPlayer = document.getElementById('audioPlayer');
+
         async function init() {
+            // 安全地嘗試 Firebase 初始化（僅在環境變數存在時執行）
             try {
-                await signInAnonymously(auth);
+                if (typeof __firebase_config !== 'undefined') {
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    const app = initializeApp(firebaseConfig);
+                    const auth = getAuth(app);
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.warn("Firebase 初始化跳過或失敗，將使用直接載入模式。");
+            }
+
+            // 直接開始載入資料，不論 Firebase 是否成功
+            try {
                 await loadData();
                 initSpeechRecognition();
                 
                 document.getElementById('loadingOverlay').classList.add('hidden');
                 document.getElementById('studyView').classList.remove('hidden');
-                
                 renderGrid();
             } catch (err) {
-                console.error("初始化失敗:", err);
-                document.getElementById('loadingText').innerText = "載入失敗，請檢查網路連接。";
+                console.error("資料載入失敗:", err);
+                document.getElementById('loadingText').innerHTML = `載入失敗：${err.message}<br><br>請檢查 Google 試算表是否已發佈為 CSV 格式。`;
             }
         }
 
         async function loadData() {
             const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSIS-1UF7kUUYsxnNgBtsyYNI9n5GAKh-fxtJkKjaGBk9VXxk07WILC_rLoB2-0wrhVjuJIVgqgIdIL/pub?output=csv';
-            try {
-                const response = await fetch(CSV_URL);
-                if (!response.ok) throw new Error("網路回應不正常");
-                const text = await response.text();
-                const rows = parseCSV(text);
-                if (rows.length <= 1) throw new Error("CSV 資料為空");
+            
+            const response = await fetch(CSV_URL);
+            if (!response.ok) throw new Error("網路連線錯誤");
+            
+            const text = await response.text();
+            const rows = parseCSV(text);
+            if (rows.length <= 1) throw new Error("CSV 資料不足");
 
-                const headers = rows[0].map(h => h.trim());
-                const idxWord = headers.indexOf("詞條") !== -1 ? headers.indexOf("詞條") : 1;
-                const idxAudio = headers.indexOf("語音") !== -1 ? headers.indexOf("語音") : 2;
-                const idxPoj = headers.indexOf("羅馬字") !== -1 ? headers.indexOf("羅馬字") : 5;
-                const idxMeaning = headers.indexOf("釋義") !== -1 ? headers.indexOf("釋義") : 6;
-                const idxCat = headers.indexOf("分類") !== -1 ? headers.indexOf("分類") : 7;
+            const headers = rows[0].map(h => h.trim());
+            const idxWord = headers.indexOf("詞條") !== -1 ? headers.indexOf("詞條") : 1;
+            const idxAudio = headers.indexOf("語音") !== -1 ? headers.indexOf("語音") : 2;
+            const idxPoj = headers.indexOf("羅馬字") !== -1 ? headers.indexOf("羅馬字") : 5;
+            const idxMeaning = headers.indexOf("釋義") !== -1 ? headers.indexOf("釋義") : 6;
+            const idxCat = headers.indexOf("分類") !== -1 ? headers.indexOf("分類") : 7;
 
-                allData = rows.slice(1).map((r, i) => ({
-                    id: `id-${i}`,
-                    word: (r[idxWord] || '').trim(),
-                    audio: (r[idxAudio] || '').trim(),
-                    poj: (r[idxPoj] || '').trim(),
-                    meaning: (r[idxMeaning] || '').trim(),
-                    category: (r[idxCat] || '未分類').trim()
-                })).filter(d => d.word && d.audio);
+            allData = rows.slice(1).map((r, i) => ({
+                id: `id-${i}`,
+                word: (r[idxWord] || '').trim(),
+                audio: (r[idxAudio] || '').trim(),
+                poj: (r[idxPoj] || '').trim(),
+                meaning: (r[idxMeaning] || '').trim(),
+                category: (r[idxCat] || '未分類').trim()
+            })).filter(d => d.word && d.audio);
 
-                document.getElementById('dataStatus').innerText = `資料: ${allData.length}`;
-                const cats = ['all', ...new Set(allData.map(d => d.category))];
-                const sel = document.getElementById('categorySelect');
-                sel.innerHTML = '';
-                cats.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c;
-                    opt.textContent = c === 'all' ? '所有分類' : c;
-                    sel.appendChild(opt);
-                });
-            } catch (err) {
-                console.error("CSV 載入錯誤:", err);
-            }
+            document.getElementById('dataStatus').innerText = `資料: ${allData.length}`;
+            
+            const cats = ['all', ...new Set(allData.map(d => d.category))];
+            const sel = document.getElementById('categorySelect');
+            sel.innerHTML = '';
+            cats.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c === 'all' ? '所有分類' : c;
+                sel.appendChild(opt);
+            });
         }
 
         function parseCSV(data) {
@@ -265,13 +267,13 @@
             const start = (currentPage - 1) * pageSize;
             const pageItems = filteredData.slice(start, start + pageSize);
 
-            pageItems.forEach((item, idx) => {
+            pageItems.forEach((item) => {
                 const card = document.createElement('div');
                 card.id = `card-${item.id}`;
                 card.className = 'word-card bg-white p-5 rounded-2xl shadow-sm border-2 border-slate-200 flex justify-between items-center transition-all cursor-pointer hover:border-indigo-300';
                 card.innerHTML = `
                     <div class="flex-grow">
-                        <div class="flex items-baseline gap-3">
+                        <div class="flex flex-col sm:flex-row sm:items-baseline sm:gap-3">
                             <span class="text-2xl font-bold text-slate-800">${item.word}</span>
                             <span class="text-2xl font-mono text-indigo-500">${item.poj}</span>
                         </div>
@@ -280,13 +282,11 @@
                     <button class="play-btn w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all text-xl">🔊</button>
                 `;
                 
-                // 點擊播放鈕觸發智慧續播
                 const playBtn = card.querySelector('.play-btn');
                 playBtn.onclick = (e) => {
                     e.stopPropagation();
                     startAutoPlayFrom(item.id);
                 };
-                
                 grid.appendChild(card);
             });
 
@@ -295,15 +295,11 @@
             document.getElementById('nextPage').disabled = currentPage === totalPages;
         }
 
-        // --- 自動連播系統 ---
-        const audioPlayer = document.getElementById('audioPlayer');
-
+        // --- 連播功能 ---
         function startAutoPlayFrom(wordId) {
             stopAutoPlay();
-            // 根據目前過濾狀態設定播放清單
             playList = [...filteredData];
             const startIndex = playList.findIndex(item => item.id === wordId);
-            
             if (startIndex !== -1) {
                 currentPlayIndex = startIndex;
                 isAutoPlaying = true;
@@ -317,21 +313,16 @@
                 stopAutoPlay();
                 return;
             }
-
             const item = playList[currentPlayIndex];
-            
-            // 檢查是否在當前頁面，若不是則翻頁 (可選)
-            // 這裡簡單處理：只視覺標註目前正在播放的卡片
             document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
             const activeCard = document.getElementById(`card-${item.id}`);
             if (activeCard) {
                 activeCard.classList.add('playing');
                 activeCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-
             audioPlayer.src = item.audio;
             audioPlayer.play().catch(e => {
-                console.error("播放出錯:", e);
+                console.error("播放失敗:", e);
                 currentPlayIndex++;
                 playNextInList();
             });
@@ -340,7 +331,7 @@
         audioPlayer.onended = () => {
             if (isAutoPlaying) {
                 currentPlayIndex++;
-                setTimeout(playNextInList, 800); // 停頓 0.8 秒後播下一個
+                setTimeout(playNextInList, 800);
             }
         };
 
@@ -351,7 +342,7 @@
             document.getElementById('stopPlayBtn').classList.add('hidden');
         }
 
-        // --- 遊戲系統 ---
+        // --- 遊戲邏輯 ---
         window.selectGameMode = (mode) => {
             gameMode = mode;
             document.querySelectorAll('.game-mode-btn').forEach(btn => {
@@ -370,35 +361,29 @@
             document.getElementById('gamePlayListen').classList.add('hidden');
             document.getElementById('gamePlayMatch').classList.add('hidden');
             document.getElementById('gamePlaySpeak').classList.add('hidden');
-            document.getElementById('gameResultScreen').classList.add('hidden');
-
+            
             if (gameMode === 'listen') {
                 document.getElementById('gamePlayListen').classList.remove('hidden');
-                document.getElementById('listenScore').innerText = '0';
                 nextListenQuestion();
             } else if (gameMode === 'match') {
                 document.getElementById('gamePlayMatch').classList.remove('hidden');
-                document.getElementById('matchScore').innerText = '0';
                 nextMatchRound();
             } else if (gameMode === 'speak') {
                 document.getElementById('gamePlaySpeak').classList.remove('hidden');
-                document.getElementById('speakScore').innerText = '0';
                 nextSpeakQuestion();
             }
         };
 
-        // 聽力模式實作
+        // 聽力模式
         function nextListenQuestion() {
             currentQuestion = allData[Math.floor(Math.random() * allData.length)];
             document.getElementById('listenWordDisplay').innerText = "點擊按鈕聽語音";
-            
             const options = [currentQuestion];
             while(options.length < 4) {
                 const randomItem = allData[Math.floor(Math.random() * allData.length)];
                 if(!options.find(o => o.id === randomItem.id)) options.push(randomItem);
             }
             options.sort(() => Math.random() - 0.5);
-
             const container = document.getElementById('listenOptions');
             container.innerHTML = '';
             options.forEach(opt => {
@@ -410,13 +395,11 @@
                         gameScore += 10;
                         document.getElementById('listenScore').innerText = gameScore;
                         nextListenQuestion();
-                    } else {
-                        endGame();
-                    }
+                    } else { endGame(); }
                 };
                 container.appendChild(btn);
             });
-            replayListenAudio();
+            window.replayListenAudio();
         }
 
         window.replayListenAudio = () => {
@@ -424,12 +407,11 @@
             audioPlayer.play();
         };
 
-        // 配對模式實作
+        // 配對模式
         function nextMatchRound() {
             const items = [...allData].sort(() => Math.random() - 0.5).slice(0, 4);
             const words = [...items].sort(() => Math.random() - 0.5);
             const pojs = [...items].sort(() => Math.random() - 0.5);
-            
             const wBox = document.getElementById('matchWords'), pBox = document.getElementById('matchPoj');
             wBox.innerHTML = ''; pBox.innerHTML = '';
             selectedWordId = null; selectedPojId = null;
@@ -469,7 +451,6 @@
                     gameScore += 20;
                     document.getElementById('matchScore').innerText = gameScore;
                     document.querySelectorAll(`[data-id="${selectedWordId}"]`).forEach(btn => btn.classList.add('matched'));
-                    
                     selectedWordId = null; selectedPojId = null;
                     if (document.querySelectorAll('.match-btn:not(.matched)').length === 0) {
                         setTimeout(nextMatchRound, 1000);
@@ -481,7 +462,7 @@
             }
         }
 
-        // 口說模式實作
+        // 口說模式
         function nextSpeakQuestion() {
             if (isRecognitionActive) recognition.stop();
             currentQuestion = allData[Math.floor(Math.random() * allData.length)];
@@ -526,24 +507,25 @@
             document.getElementById('gameStartScreen').classList.remove('hidden');
         };
 
-        window.endGame = () => {
+        function endGame() {
             if (isRecognitionActive) recognition.stop();
             document.getElementById('gamePlayListen').classList.add('hidden');
             document.getElementById('gamePlayMatch').classList.add('hidden');
             document.getElementById('gamePlaySpeak').classList.add('hidden');
             document.getElementById('gameResultScreen').classList.remove('hidden');
             document.getElementById('finalScore').innerText = gameScore;
-        };
+        }
+        window.endGame = endGame;
 
         // --- 事件綁定 ---
         document.getElementById('playPageBtn').onclick = () => {
             if (filteredData.length > 0) {
-                const startId = filteredData[(currentPage - 1) * pageSize].id;
+                const startIdx = (currentPage - 1) * pageSize;
+                const startId = filteredData[startIdx].id;
                 startAutoPlayFrom(startId);
-                // 限制只播本頁：覆寫 end 邏輯
                 const originalEnded = audioPlayer.onended;
                 audioPlayer.onended = () => {
-                    if (currentPlayIndex >= (currentPage * pageSize) - 1) {
+                    if (currentPlayIndex >= (currentPage * pageSize) - 1 || currentPlayIndex >= filteredData.length - 1) {
                         stopAutoPlay();
                         audioPlayer.onended = originalEnded;
                     } else {
@@ -559,7 +541,6 @@
         };
 
         document.getElementById('stopPlayBtn').onclick = stopAutoPlay;
-
         document.getElementById('categorySelect').onchange = () => { stopAutoPlay(); currentPage = 1; renderGrid(); };
         document.getElementById('prevPage').onclick = () => { stopAutoPlay(); if (currentPage > 1) { currentPage--; renderGrid(); } };
         document.getElementById('nextPage').onclick = () => { stopAutoPlay(); if (currentPage * pageSize < filteredData.length) { currentPage++; renderGrid(); } };
