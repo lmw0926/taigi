@@ -7,15 +7,19 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; touch-action: manipulation; }
         .word-card { transition: all 0.3s ease; }
         .word-card.playing { border-color: #6366f1; background-color: #eef2ff; box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2); transform: scale(1.02); }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .draggable { cursor: grab; user-select: none; }
+        
+        /* 拖曳相關樣式 */
+        .draggable { cursor: grab; user-select: none; touch-action: none; position: relative; z-index: 10; }
         .draggable:active { cursor: grabbing; }
-        .drop-zone.drag-over { background-color: #e0e7ff; border-color: #6366f1; transform: scale(1.05); }
+        .dragging { opacity: 0.5; transform: scale(1.05); }
+        .drop-zone.drag-over { background-color: #e0e7ff; border-color: #6366f1; transform: scale(1.02); }
         .matched-item { opacity: 0.3; pointer-events: none; }
+        
         .star-active { color: #f59e0b !important; fill: #f59e0b; }
         .shake { animation: shake 0.5s linear; }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
@@ -23,7 +27,7 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
-    <header class="sticky top-0 z-20 bg-white shadow-sm border-b border-slate-200 p-4">
+    <header class="sticky top-0 z-30 bg-white shadow-sm border-b border-slate-200 p-4">
         <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-4">
                 <h1 class="text-xl font-bold text-indigo-600">台語學習通</h1>
@@ -32,7 +36,7 @@
                     <button id="navGame" class="nav-btn px-4 py-1.5 rounded-lg text-sm font-bold text-slate-500 hover:text-indigo-600 transition-all">遊戲</button>
                 </nav>
             </div>
-            <div id="studyControls" class="flex items-center gap-2">
+            <div id="topControls" class="flex items-center gap-2">
                 <select id="categorySelect" class="bg-slate-100 border-none rounded-lg px-3 py-2 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500">
                     <option value="all">載入中...</option>
                 </select>
@@ -70,24 +74,17 @@
         <!-- 遊戲視窗 -->
         <div id="gameView" class="hidden">
             <div id="gameStartScreen" class="py-12 bg-white rounded-3xl shadow-xl border p-8 text-center">
-                <h2 class="text-3xl font-bold mb-8 text-slate-800">挑戰遊戲</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8 text-left">
-                    <div>
-                        <label class="block text-sm font-bold text-slate-500 mb-2">模式</label>
-                        <select id="gameModeSelect" class="w-full p-4 bg-slate-50 rounded-xl border-2 border-slate-100">
-                            <option value="listen">聽力選選樂</option>
-                            <option value="match">拖拉配對王</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-bold text-slate-500 mb-2">範圍</label>
-                        <select id="gameScopeSelect" class="w-full p-4 bg-slate-50 rounded-xl border-2 border-slate-100">
-                            <option value="all">所有單字</option>
-                            <option value="current">目前分類</option>
-                            <option value="fav">僅限星號收藏 (⭐)</option>
-                        </select>
-                    </div>
+                <h2 class="text-3xl font-bold mb-4 text-slate-800">挑戰遊戲</h2>
+                <p id="gameScopeIndicator" class="mb-8 text-indigo-600 font-medium bg-indigo-50 py-2 px-4 rounded-full inline-block">範圍：所有單字</p>
+                
+                <div class="max-w-xs mx-auto mb-8 text-left">
+                    <label class="block text-sm font-bold text-slate-500 mb-2">選擇遊戲模式</label>
+                    <select id="gameModeSelect" class="w-full p-4 bg-slate-50 rounded-xl border-2 border-slate-100">
+                        <option value="listen">聽力選選樂</option>
+                        <option value="match">拖拉配對王</option>
+                    </select>
                 </div>
+                
                 <button id="startGameBtn" class="w-full max-w-sm py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg hover:bg-indigo-700 transition-all active:scale-95 text-lg">開始練習</button>
             </div>
 
@@ -110,7 +107,7 @@
                     <div class="bg-indigo-100 px-4 py-2 rounded-full font-bold text-indigo-700">得分: <span id="matchScore">0</span></div>
                     <button class="exit-game-btn text-slate-400 font-bold">返回選單</button>
                 </div>
-                <div class="grid grid-cols-2 gap-6">
+                <div class="grid grid-cols-2 gap-4 sm:gap-6">
                     <div id="matchWordsCol" class="space-y-3"></div>
                     <div id="matchPojCol" class="space-y-3"></div>
                 </div>
@@ -135,9 +132,9 @@
         let filteredData = [];
         let favorites = JSON.parse(localStorage.getItem('taigi_favs') || '[]');
         let currentPage = 1;
-        const pageSize = 10; // 修正：每一頁顯示 10 張
+        const pageSize = 10;
         let isAutoPlaying = false;
-        let isPlayPageOnly = false; // 追蹤是否僅播放本頁
+        let isPlayPageOnly = false;
         let currentPlayIndex = -1;
         let gameScore = 0;
         let currentQuestion = null;
@@ -150,6 +147,7 @@
             await loadCSVData();
             document.getElementById('loadingOverlay').classList.add('hidden');
             document.getElementById('studyView').classList.remove('hidden');
+            updateGameScopeIndicator();
             renderGrid();
         }
 
@@ -164,10 +162,11 @@
                     const r = parseCSVLine(line);
                     return {
                         id: `it-${i}`,
-                        word: r[1] || '',
-                        audio: r[2] || '',
-                        poj: r[5] || '',
-                        meaning: r[6] || '',
+                        dbIndex: i + 1,        // 題庫原始編號 (從 1 開始)
+                        word: r[1] || '',      
+                        audio: r[2] || '',     
+                        poj: r[5] || '',       
+                        meaning: r[6] || '',   
                         category: r[7] || '未分類'
                     };
                 }).filter(d => d.word && d.audio);
@@ -206,6 +205,8 @@
                 return matchCat && matchFav;
             });
 
+            updateGameScopeIndicator();
+
             const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
             if (currentPage > totalPages) currentPage = totalPages;
 
@@ -220,9 +221,10 @@
                 const isFav = favorites.includes(item.id);
                 const card = document.createElement('div');
                 card.id = `card-${item.id}`;
-                card.className = `word-card bg-white p-5 rounded-2xl shadow-sm border-2 border-slate-200 flex justify-between items-center cursor-pointer hover:border-indigo-300`;
+                card.className = `word-card bg-white p-5 rounded-2xl shadow-sm border-2 border-slate-200 flex justify-between items-center cursor-pointer hover:border-indigo-300 relative`;
                 card.innerHTML = `
-                    <div>
+                    <div class="absolute top-2 left-3 text-[10px] font-bold text-slate-300">#${item.dbIndex}</div>
+                    <div class="mt-2">
                         <div class="flex items-center gap-3">
                             <span class="text-2xl font-bold">${item.word}</span>
                             <span class="text-xl font-bold text-indigo-500 font-mono">${item.poj}</span>
@@ -256,6 +258,15 @@
             document.getElementById('nextPage').disabled = currentPage === totalPages;
         }
 
+        function updateGameScopeIndicator() {
+            const cat = document.getElementById('categorySelect').value;
+            const favOnly = document.getElementById('toggleFavorites').classList.contains('bg-amber-100');
+            let text = favOnly ? "範圍：星號收藏" : `範圍：${cat === 'all' ? '所有單字' : cat}`;
+            text += ` (${filteredData.length} 個)`;
+            const el = document.getElementById('gameScopeIndicator');
+            if (el) el.innerText = text;
+        }
+
         function toggleFav(id) {
             if (favorites.includes(id)) favorites = favorites.filter(f => f !== id);
             else favorites.push(id);
@@ -267,10 +278,10 @@
             audioPlayer.play().catch(() => {});
         }
 
-        // --- 自動播放 ---
+        // --- 自動播放邏輯 ---
         function startAutoPlay(isAll) {
             isAutoPlaying = true;
-            isPlayPageOnly = !isAll; // 如果不是全部，就是播放本頁
+            isPlayPageOnly = !isAll;
             document.getElementById('stopPlayBtn').classList.remove('hidden');
             currentPlayIndex = (currentPage - 1) * pageSize;
             if (isAll) currentPlayIndex = 0;
@@ -281,23 +292,14 @@
             if (!isAutoPlaying || currentPlayIndex >= filteredData.length) {
                 stopAutoPlay(); return;
             }
-
-            // 修正：播放本頁邏輯，如果超過本頁範圍則停止
-            if (isPlayPageOnly) {
-                const endOfPageIndex = currentPage * pageSize;
-                if (currentPlayIndex >= endOfPageIndex) {
-                    stopAutoPlay(); return;
-                }
+            if (isPlayPageOnly && currentPlayIndex >= currentPage * pageSize) {
+                stopAutoPlay(); return;
             }
-
             const item = filteredData[currentPlayIndex];
             const itemPage = Math.floor(currentPlayIndex / pageSize) + 1;
-            
-            // 如果是連續播放模式，需要自動跳頁
             if (!isPlayPageOnly && itemPage !== currentPage) {
                 currentPage = itemPage; renderGrid();
             }
-
             document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
             const card = document.getElementById(`card-${item.id}`);
             if (card) {
@@ -318,13 +320,11 @@
 
         // --- 遊戲邏輯 ---
         function startGame() {
-            const scope = document.getElementById('gameScopeSelect').value;
-            if (scope === 'all') gamePool = [...allData];
-            else if (scope === 'current') gamePool = [...filteredData];
-            else gamePool = allData.filter(d => favorites.includes(d.id));
+            // 直接使用當前導覽列選取的範圍 (filteredData)
+            gamePool = [...filteredData];
 
-            if (gamePool.length < 5) {
-                alert("所選範圍的單字太少 (至少需要 5 個)！"); return;
+            if (gamePool.length < 4) {
+                alert("目前選取的範圍單字太少 (至少需要 4 個)！請更換分類或增加收藏。"); return;
             }
 
             gameScore = 0;
@@ -355,16 +355,14 @@
                 const isFav = favorites.includes(opt.id);
                 const wrapper = document.createElement('div');
                 wrapper.className = 'relative flex items-center';
-                
-                // 修正：聽力選選樂按鈕增加音標與星號功能
                 wrapper.innerHTML = `
-                    <button class="opt-btn flex-grow p-5 bg-white border-2 border-slate-100 rounded-2xl font-bold hover:border-indigo-500 active:scale-95 flex flex-col items-center">
+                    <button class="opt-btn flex-grow p-5 bg-white border-2 border-slate-100 rounded-2xl font-bold hover:border-indigo-500 active:scale-95 flex flex-col items-center relative pt-7">
+                        <span class="absolute top-2 left-3 text-[10px] font-bold text-slate-300">#${opt.dbIndex}</span>
                         <span class="text-2xl">${opt.word}</span>
                         <span class="text-sm text-indigo-400 font-mono mt-1">${opt.poj}</span>
                     </button>
-                    <button class="game-fav-btn absolute top-3 right-3 text-2xl ${isFav ? 'star-active text-amber-500' : 'text-slate-200'}">★</button>
+                    <button class="game-fav-btn absolute top-2 right-3 text-2xl ${isFav ? 'star-active text-amber-500' : 'text-slate-200'}">★</button>
                 `;
-
                 wrapper.querySelector('.opt-btn').onclick = () => {
                     if (opt.id === currentQuestion.id) {
                         gameScore += 10;
@@ -372,59 +370,160 @@
                         nextListenQuestion();
                     } else endGame();
                 };
-
                 wrapper.querySelector('.game-fav-btn').onclick = (e) => {
                     e.stopPropagation();
                     toggleFav(opt.id);
-                    const btn = e.target;
                     const nowFav = favorites.includes(opt.id);
-                    btn.className = `game-fav-btn absolute top-3 right-3 text-2xl ${nowFav ? 'star-active text-amber-500' : 'text-slate-200'}`;
+                    e.target.className = `game-fav-btn absolute top-2 right-3 text-2xl ${nowFav ? 'star-active text-amber-500' : 'text-slate-200'}`;
                 };
-
                 container.appendChild(wrapper);
             });
             playAudio(currentQuestion.audio);
         }
 
+        // --- 手機觸控拖拉模擬邏輯 ---
+        function enableTouchDrag(el, onMatch) {
+            let startX, startY, initialX, initialY;
+            let currentDragged = null;
+
+            el.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                startX = touch.clientX;
+                startY = touch.clientY;
+                const rect = el.getBoundingClientRect();
+                initialX = rect.left;
+                initialY = rect.top;
+                
+                currentDragged = el.cloneNode(true);
+                currentDragged.style.position = 'fixed';
+                currentDragged.style.width = rect.width + 'px';
+                currentDragged.style.left = initialX + 'px';
+                currentDragged.style.top = initialY + 'px';
+                currentDragged.style.opacity = '0.8';
+                currentDragged.style.zIndex = '1000';
+                currentDragged.style.pointerEvents = 'none';
+                document.body.appendChild(currentDragged);
+                el.classList.add('dragging');
+            });
+
+            el.addEventListener('touchmove', (e) => {
+                if (!currentDragged) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                const dx = touch.clientX - startX;
+                const dy = touch.clientY - startY;
+                currentDragged.style.left = (initialX + dx) + 'px';
+                currentDragged.style.top = (initialY + dy) + 'px';
+
+                // 檢查是否碰撞到 drop-zone
+                const dropZones = document.querySelectorAll('.drop-zone');
+                dropZones.forEach(zone => {
+                    const zRect = zone.getBoundingClientRect();
+                    if (touch.clientX > zRect.left && touch.clientX < zRect.right &&
+                        touch.clientY > zRect.top && touch.clientY < zRect.bottom) {
+                        zone.classList.add('drag-over');
+                    } else {
+                        zone.classList.remove('drag-over');
+                    }
+                });
+            }, { passive: false });
+
+            el.addEventListener('touchend', (e) => {
+                if (!currentDragged) return;
+                const touch = e.changedTouches[0];
+                const dropZones = document.querySelectorAll('.drop-zone');
+                let foundMatch = false;
+
+                dropZones.forEach(zone => {
+                    const zRect = zone.getBoundingClientRect();
+                    zone.classList.remove('drag-over');
+                    if (touch.clientX > zRect.left && touch.clientX < zRect.right &&
+                        touch.clientY > zRect.top && touch.clientY < zRect.bottom) {
+                        // 觸發自定義比對邏輯
+                        onMatch(zone);
+                        foundMatch = true;
+                    }
+                });
+
+                document.body.removeChild(currentDragged);
+                currentDragged = null;
+                el.classList.remove('dragging');
+            });
+        }
+
         function nextMatchRound() {
-            const items = [...gamePool].sort(() => Math.random() - 0.5).slice(0, 5);
+            const poolSize = Math.min(gamePool.length, 5);
+            const items = [...gamePool].sort(() => Math.random() - 0.5).slice(0, poolSize);
             const wordsCol = document.getElementById('matchWordsCol');
             const pojCol = document.getElementById('matchPojCol');
             wordsCol.innerHTML = ''; pojCol.innerHTML = '';
+            
             const words = [...items].sort(() => Math.random() - 0.5);
             const pojs = [...items].sort(() => Math.random() - 0.5);
             
             words.forEach(it => {
                 const div = document.createElement('div');
-                div.id = `drag-${it.id}`; div.draggable = true; div.innerText = it.word;
-                div.className = 'draggable p-4 bg-white border-2 border-indigo-100 rounded-xl font-bold text-xl text-center shadow-sm';
-                div.ondragstart = (e) => e.dataTransfer.setData('text', it.id);
+                div.id = `drag-${it.id}`; 
+                div.draggable = true; 
+                div.className = 'draggable p-3 sm:p-4 bg-white border-2 border-indigo-100 rounded-xl font-bold text-lg sm:text-xl text-center shadow-sm relative pt-6';
+                div.innerHTML = `<span class="absolute top-1 left-2 text-[9px] text-slate-300">#${it.dbIndex}</span>${it.word}`;
+                
+                // PC 拖拉
+                div.ondragstart = (e) => {
+                    e.dataTransfer.setData('text', it.id);
+                    div.classList.add('dragging');
+                };
+                div.ondragend = () => div.classList.remove('dragging');
+
+                // 手機拖拉
+                enableTouchDrag(div, (targetZone) => {
+                    if (targetZone.dataset.id === it.id) {
+                        handleMatchSuccess(it, targetZone);
+                    } else {
+                        targetZone.classList.add('shake');
+                        setTimeout(() => targetZone.classList.remove('shake'), 500);
+                    }
+                });
+
                 wordsCol.appendChild(div);
             });
 
             pojs.forEach(it => {
                 const div = document.createElement('div');
-                div.className = 'drop-zone p-4 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl font-mono text-lg text-center font-bold';
+                div.className = 'drop-zone p-3 sm:p-4 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl font-mono text-sm sm:text-base text-center font-bold flex items-center justify-center min-h-[60px]';
                 div.innerText = it.poj;
+                div.dataset.id = it.id;
+
+                // PC 接收
                 div.ondragover = (e) => { e.preventDefault(); div.classList.add('drag-over'); };
                 div.ondragleave = () => div.classList.remove('drag-over');
                 div.ondrop = (e) => {
                     e.preventDefault();
                     div.classList.remove('drag-over');
-                    if (e.dataTransfer.getData('text') === it.id) {
-                        gameScore += 20;
-                        document.getElementById('matchScore').innerText = gameScore;
-                        playAudio(it.audio);
-                        div.className = 'p-4 bg-green-100 border-2 border-green-500 rounded-xl font-bold text-lg text-center text-green-700';
-                        div.innerText = `✅ ${it.word}`;
-                        document.getElementById(`drag-${it.id}`).classList.add('matched-item');
-                        if (!document.querySelector('.draggable:not(.matched-item)')) setTimeout(nextMatchRound, 1000);
+                    const draggedId = e.dataTransfer.getData('text');
+                    if (draggedId === it.id) {
+                        handleMatchSuccess(it, div);
                     } else {
-                        div.classList.add('shake'); setTimeout(() => div.classList.remove('shake'), 500);
+                        div.classList.add('shake');
+                        setTimeout(() => div.classList.remove('shake'), 500);
                     }
                 };
                 pojCol.appendChild(div);
             });
+        }
+
+        function handleMatchSuccess(item, zone) {
+            gameScore += 20;
+            document.getElementById('matchScore').innerText = gameScore;
+            playAudio(item.audio);
+            zone.className = 'p-3 sm:p-4 bg-green-100 border-2 border-green-500 rounded-xl font-bold text-sm sm:text-base text-center text-green-700 flex items-center justify-center min-h-[60px]';
+            zone.innerText = `✅ ${item.word}`;
+            const origin = document.getElementById(`drag-${item.id}`);
+            if (origin) origin.classList.add('matched-item');
+            
+            if (!document.querySelector('.draggable:not(.matched-item)')) {
+                setTimeout(nextMatchRound, 1000);
+            }
         }
 
         function endGame() {
@@ -438,20 +537,25 @@
         document.getElementById('navStudy').onclick = () => {
             document.getElementById('studyView').classList.remove('hidden');
             document.getElementById('gameView').classList.add('hidden');
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.replace('bg-white', 'text-slate-500'));
-            document.getElementById('navStudy').classList.replace('text-slate-500', 'bg-white');
+            document.getElementById('navStudy').classList.add('bg-white', 'text-indigo-600');
+            document.getElementById('navGame').classList.remove('bg-white', 'text-indigo-600');
+            document.getElementById('navGame').classList.add('text-slate-500');
         };
 
         document.getElementById('navGame').onclick = () => {
             document.getElementById('gameView').classList.remove('hidden');
             document.getElementById('studyView').classList.add('hidden');
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.replace('bg-white', 'text-slate-500'));
-            document.getElementById('navGame').classList.replace('text-slate-500', 'bg-white');
+            document.getElementById('navGame').classList.add('bg-white', 'text-indigo-600');
+            document.getElementById('navStudy').classList.remove('bg-white', 'text-indigo-600');
+            document.getElementById('navStudy').classList.add('text-slate-500');
+            updateGameScopeIndicator();
         };
 
         document.getElementById('categorySelect').onchange = () => { currentPage = 1; renderGrid(); };
         document.getElementById('toggleFavorites').onclick = () => { 
-            document.getElementById('toggleFavorites').classList.toggle('bg-amber-100'); renderGrid(); 
+            document.getElementById('toggleFavorites').classList.toggle('bg-amber-100'); 
+            currentPage = 1;
+            renderGrid(); 
         };
         document.getElementById('pageSelect').onchange = (e) => { currentPage = parseInt(e.target.value); renderGrid(); };
         document.getElementById('prevPage').onclick = () => { if (currentPage > 1) { currentPage--; renderGrid(); } };
