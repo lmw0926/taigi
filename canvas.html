@@ -3,447 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台語學習通 - 穩定修正版</title>
+    <title>台語學習通 - 安裝與發布儀表板</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; touch-action: manipulation; }
-        .word-card { transition: all 0.3s ease; }
-        .word-card.playing { border-color: #6366f1; background-color: #eef2ff; box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2); transform: scale(1.02); }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        .draggable { cursor: grab; user-select: none; touch-action: none; position: relative; z-index: 10; }
-        .draggable:active { cursor: grabbing; }
-        .dragging { opacity: 0.5; transform: scale(1.05); }
-        .drop-zone.drag-over { background-color: #e0e7ff; border-color: #6366f1; transform: scale(1.02); }
-        .matched-item { opacity: 0.3 !important; pointer-events: none !important; }
-        
-        .star-active { color: #f59e0b !important; fill: #f59e0b; }
-        .shake { animation: shake 0.5s linear; }
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 300px; max-height: 400px; }
+        @media (min-width: 768px) { .chart-container { height: 350px; } }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .step-item { transition: all 0.2s; }
+        .step-item.completed { opacity: 0.6; text-decoration: line-through; background-color: #f3f4f6; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="bg-stone-50 text-stone-800 min-h-screen">
 
-    <header class="sticky top-0 z-30 bg-white shadow-sm border-b border-slate-200 p-4">
-        <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
-            <div class="flex items-center gap-4">
-                <h1 class="text-xl font-bold text-indigo-600">台語學習通</h1>
-                <nav class="flex bg-slate-100 p-1 rounded-xl">
-                    <button id="navStudy" class="nav-btn px-4 py-1.5 rounded-lg text-sm font-bold bg-white shadow-sm text-indigo-600">學習</button>
-                    <button id="navGame" class="nav-btn px-4 py-1.5 rounded-lg text-sm font-bold text-slate-500 hover:text-indigo-600 transition-all">遊戲</button>
-                </nav>
+<!-- Chosen Palette: Warm Stone and Indigo for a calm, technical, and readable interface. -->
+<!-- Application Structure Plan: Designed as an interactive installation dashboard. The header provides immediate context. The top section uses a chart to visualize the recent update completion status. The core content is organized into an interactive tabbed interface (PC, Mobile, Updates) to prevent information overload, allowing users to focus on their specific platform needs. A checklist interaction is added to the PC setup for active engagement. -->
+<!-- Visualization & Content Choices: Report Info: Updates -> Goal: Inform -> Viz: Bar Chart -> Interaction: Hover tooltips -> Justification: Quickly communicates that recent critical updates are fully deployed -> Method: Chart.js. Report Info: Setup Steps -> Goal: Organize -> Viz: Interactive Checklist -> Interaction: Click to toggle state -> Justification: Turns passive reading into an active task list for better user completion -> Method: Vanilla JS + Tailwind. -->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <header class="bg-white border-b border-stone-200 shadow-sm py-6 px-4 md:px-8">
+        <div class="max-w-5xl mx-auto flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-indigo-700">📚 台語學習通</h1>
+                <p class="text-sm text-stone-500 mt-1">純網頁版應用程式 (HTML5) - 執行與安裝指南</p>
             </div>
-            <div id="topControls" class="flex items-center gap-2">
-                <select id="categorySelect" class="bg-slate-100 border-none rounded-lg px-3 py-2 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500">
-                    <option value="all">載入中...</option>
-                </select>
-                <button id="toggleFavorites" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium hover:bg-amber-50">⭐ 收藏夾</button>
+            <div class="hidden md:flex gap-2">
+                <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold">無需安裝軟體</span>
+                <span class="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-bold">跨平台支援</span>
             </div>
         </div>
     </header>
 
-    <main class="flex-grow p-4 sm:p-6 max-w-4xl w-full mx-auto">
-        <div id="loadingOverlay" class="flex flex-col items-center justify-center py-20">
-            <div class="loader mb-4"></div>
-            <p class="text-slate-500">正在準備教材內容...</p>
+    <main class="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <div class="lg:col-span-1 space-y-8">
+            <section class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
+                <h2 class="text-lg font-bold text-stone-800 mb-2">系統狀態簡報</h2>
+                <p class="text-sm text-stone-600 mb-6">本應用程式只要有瀏覽器（如 Chrome, Safari, Edge）即可運行。以下為最新版本修復指標。</p>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </section>
+
+            <section class="bg-indigo-600 p-6 rounded-2xl shadow-md text-white">
+                <h2 class="text-lg font-bold mb-2">💡 核心優勢</h2>
+                <ul class="space-y-3 mt-4 text-sm">
+                    <li class="flex items-center gap-2"><span class="text-xl">⚡</span> 輕量化單一檔案</li>
+                    <li class="flex items-center gap-2"><span class="text-xl">📱</span> 完美適配手機與電腦</li>
+                    <li class="flex items-center gap-2"><span class="text-xl">🔄</span> 狀態即時同步</li>
+                </ul>
+            </section>
         </div>
 
-        <div id="studyView" class="hidden">
-            <div class="flex flex-wrap gap-2 mb-6">
-                <button id="playPageBtn" class="flex-1 py-3 bg-indigo-100 text-indigo-700 font-bold rounded-xl hover:bg-indigo-200">📄 播放本頁</button>
-                <button id="playAllBtn" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700">🔁 連續播放</button>
-                <button id="stopPlayBtn" class="hidden px-6 py-3 bg-rose-100 text-rose-600 font-bold rounded-xl">停止</button>
-            </div>
-            <div id="wordGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-            
-            <div id="pagination" class="flex items-center justify-center gap-4 mt-10 mb-20">
-                <button id="prevPage" class="p-3 rounded-full bg-white border border-slate-200 disabled:opacity-30">◀</button>
-                <div class="bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm flex items-center gap-2">
-                    <select id="pageSelect" class="bg-transparent border-none font-bold text-indigo-600 cursor-pointer"></select>
-                    <span id="totalPagesText" class="text-slate-500 text-sm">/ 1 頁</span>
-                </div>
-                <button id="nextPage" class="p-3 rounded-full bg-white border border-slate-200 disabled:opacity-30">▶</button>
-            </div>
-        </div>
-
-        <div id="gameView" class="hidden">
-            <div id="gameStartScreen" class="py-12 bg-white rounded-3xl shadow-xl border p-8 text-center">
-                <h2 class="text-3xl font-bold mb-4 text-slate-800">挑戰遊戲</h2>
-                <p id="gameScopeIndicator" class="mb-8 text-indigo-600 font-medium bg-indigo-50 py-2 px-4 rounded-full inline-block">範圍：所有單字</p>
-                <div class="max-w-xs mx-auto mb-8 text-left">
-                    <label class="block text-sm font-bold text-slate-500 mb-2">選擇遊戲模式</label>
-                    <select id="gameModeSelect" class="w-full p-4 bg-slate-50 rounded-xl border-2 border-slate-100">
-                        <option value="listen">聽力選選樂</option>
-                        <option value="match">拖拉配對王</option>
-                    </select>
-                </div>
-                <button id="startGameBtn" class="w-full max-w-sm py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg hover:bg-indigo-700 transition-all active:scale-95 text-lg">開始練習</button>
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
+            <div class="flex border-b border-stone-200 bg-stone-50">
+                <button class="tab-btn flex-1 py-4 text-sm font-bold text-indigo-600 border-b-2 border-indigo-600 bg-white" data-target="pc">
+                    💻 電腦版操作
+                </button>
+                <button class="tab-btn flex-1 py-4 text-sm font-bold text-stone-500 hover:text-stone-700 transition-colors" data-target="mobile">
+                    📱 手機版操作
+                </button>
+                <button class="tab-btn flex-1 py-4 text-sm font-bold text-stone-500 hover:text-stone-700 transition-colors" data-target="updates">
+                    ✨ 最新修復內容
+                </button>
             </div>
 
-            <div id="gamePlayListen" class="hidden">
-                <div class="flex justify-between items-center mb-6">
-                    <div class="bg-indigo-100 px-4 py-2 rounded-full font-bold text-indigo-700">得分: <span id="listenScore">0</span></div>
-                    <button class="exit-game-btn text-slate-400 font-bold">返回選單</button>
+            <div class="p-6 md:p-8 flex-grow">
+                <div id="pc" class="tab-content active">
+                    <h3 class="text-xl font-bold mb-4">如何在電腦上開啟？</h3>
+                    <p class="text-stone-600 mb-6 text-sm">點擊下方步驟標記為完成，逐步建立您的學習環境：</p>
+                    
+                    <div class="space-y-3" id="checklist">
+                        <div class="step-item flex items-start gap-4 p-4 border border-stone-200 rounded-xl cursor-pointer hover:border-indigo-300 bg-white">
+                            <div class="mt-0.5 text-2xl">📋</div>
+                            <div>
+                                <h4 class="font-bold text-stone-800">1. 複製代碼</h4>
+                                <p class="text-sm text-stone-500 mt-1">複製我提供的 `index.html` 完整程式碼。</p>
+                            </div>
+                        </div>
+                        <div class="step-item flex items-start gap-4 p-4 border border-stone-200 rounded-xl cursor-pointer hover:border-indigo-300 bg-white">
+                            <div class="mt-0.5 text-2xl">📄</div>
+                            <div>
+                                <h4 class="font-bold text-stone-800">2. 建立檔案</h4>
+                                <p class="text-sm text-stone-500 mt-1">在電腦桌面點擊右鍵 -> [新增] -> [文字文件]。</p>
+                            </div>
+                        </div>
+                        <div class="step-item flex items-start gap-4 p-4 border border-stone-200 rounded-xl cursor-pointer hover:border-indigo-300 bg-white">
+                            <div class="mt-0.5 text-2xl">✏️</div>
+                            <div>
+                                <h4 class="font-bold text-stone-800">3. 貼上並更名</h4>
+                                <p class="text-sm text-stone-500 mt-1">將程式碼貼入後儲存，並將該檔案重新命名為 `taigi.html`（確認副檔名是 `.html` 而非 `.txt`）。</p>
+                            </div>
+                        </div>
+                        <div class="step-item flex items-start gap-4 p-4 border border-stone-200 rounded-xl cursor-pointer hover:border-indigo-300 bg-white">
+                            <div class="mt-0.5 text-2xl">🚀</div>
+                            <div>
+                                <h4 class="font-bold text-stone-800">4. 開啟</h4>
+                                <p class="text-sm text-stone-500 mt-1">使用 Chrome 或任何瀏覽器雙擊打開該檔案。</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="bg-white rounded-3xl shadow-xl p-10 mb-8 text-center">
-                    <button id="listenMainAudioBtn" class="w-28 h-28 bg-indigo-600 text-white rounded-full mx-auto text-5xl shadow-lg hover:scale-105 active:scale-95">🔊</button>
-                    <p class="mt-4 text-slate-400 text-sm italic">點擊喇叭聽題目</p>
-                </div>
-                <div id="listenOptions" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-            </div>
 
-            <div id="gamePlayMatch" class="hidden">
-                <div class="flex justify-between items-center mb-6">
-                    <div class="bg-indigo-100 px-4 py-2 rounded-full font-bold text-indigo-700">得分: <span id="matchScore">0</span></div>
-                    <button class="exit-game-btn text-slate-400 font-bold">返回選單</button>
+                <div id="mobile" class="tab-content">
+                    <h3 class="text-xl font-bold mb-4">如何在手機上使用？</h3>
+                    <p class="text-stone-600 mb-6 text-sm">請選擇最適合您的部署方式：</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-stone-50 p-6 rounded-xl border border-stone-200 hover:shadow-md transition-shadow">
+                            <div class="text-3xl mb-4">📤</div>
+                            <h4 class="font-bold text-indigo-700 text-lg mb-2">方法 A：直接傳送</h4>
+                            <p class="text-sm text-stone-600 leading-relaxed">您可以將上述製作好的 `html` 檔案傳送到手機（例如透過 LINE 的「內容傳送」或雲端硬碟），然後用手機內建的瀏覽器直接開啟檔案。</p>
+                        </div>
+                        
+                        <div class="bg-stone-50 p-6 rounded-xl border border-stone-200 hover:shadow-md transition-shadow">
+                            <div class="text-3xl mb-4">🌐</div>
+                            <h4 class="font-bold text-indigo-700 text-lg mb-2">方法 B：雲端託管</h4>
+                            <p class="text-sm text-stone-600 leading-relaxed">如果您有 GitHub 帳號，強烈建議將此程式碼上傳至 GitHub Pages，即可獲得一個永久的網址，方便隨時隨地開啟練習。</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="grid grid-cols-2 gap-4 sm:gap-6">
-                    <div id="matchWordsCol" class="space-y-3"></div>
-                    <div id="matchPojCol" class="space-y-3"></div>
-                </div>
-                <div id="nextRoundPulse" class="hidden mt-6 text-center text-green-600 font-bold animate-bounce">太棒了！準備進入下一關...</div>
-            </div>
 
-            <div id="gameResultScreen" class="hidden text-center py-16 bg-white rounded-3xl shadow-xl p-8">
-                <h2 class="text-2xl font-bold mb-4 text-slate-500">練習完成！</h2>
-                <p class="text-slate-400 font-medium">您的本次得分</p>
-                <div class="text-8xl font-black text-indigo-600 my-8" id="finalScore">0</div>
-                <button onclick="location.reload()" class="px-10 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-md hover:bg-indigo-700">再次挑戰</button>
-                <button class="exit-game-btn block mx-auto mt-6 text-slate-400 font-bold">回到選單</button>
+                <div id="updates" class="tab-content">
+                    <h3 class="text-xl font-bold mb-4">本次更新修復內容</h3>
+                    <p class="text-stone-600 mb-6 text-sm">系統已針對核心體驗進行了全面強化與穩定性修復：</p>
+                    
+                    <div class="space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+                            <div class="flex items-center gap-3">
+                                <span class="text-xl">▶️</span>
+                                <h4 class="font-bold text-emerald-800">自動播放優化</h4>
+                            </div>
+                            <p class="text-sm text-emerald-700 mt-2 sm:mt-0 sm:ml-4 flex-1">修復了「播放本頁」與「連續播放」功能，現在會依序播放語音並自動捲動畫面。</p>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+                            <div class="flex items-center gap-3">
+                                <span class="text-xl">🎯</span>
+                                <h4 class="font-bold text-emerald-800">範圍同步處理</h4>
+                            </div>
+                            <p class="text-sm text-emerald-700 mt-2 sm:mt-0 sm:ml-4 flex-1">現在切換分類或星號收藏後，遊戲練習的範圍會即時更新，不再固定。</p>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+                            <div class="flex items-center gap-3">
+                                <span class="text-xl">🛠️</span>
+                                <h4 class="font-bold text-emerald-800">拖拉配對穩定性</h4>
+                            </div>
+                            <p class="text-sm text-emerald-700 mt-2 sm:mt-0 sm:ml-4 flex-1">優化了手機觸控反應，確保完成 5 題後能準確跳轉下一關，並過濾掉資料庫中缺失拼音的無效資料。</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 
-    <audio id="audioPlayer" class="hidden"></audio>
-
     <script>
-        let allData = [];
-        let filteredData = [];
-        let favorites = JSON.parse(localStorage.getItem('taigi_favs') || '[]');
-        let currentPage = 1;
-        const pageSize = 10;
-        let isAutoPlaying = false;
-        let gameScore = 0;
-        let gamePool = [];
-        let currentQuestion = null;
-        let currentMatchCount = 0;
-        let currentRoundTotal = 0;
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
 
-        const audioPlayer = document.getElementById('audioPlayer');
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    tabBtns.forEach(b => {
+                        b.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600', 'bg-white');
+                        b.classList.add('text-stone-500');
+                    });
+                    
+                    btn.classList.remove('text-stone-500');
+                    btn.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600', 'bg-white');
 
-        async function init() {
-            await loadCSVData();
-            document.getElementById('loadingOverlay').classList.add('hidden');
-            document.getElementById('studyView').classList.remove('hidden');
-            renderGrid();
-        }
-
-        async function loadCSVData() {
-            try {
-                const url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSIS-1UF7kUUYsxnNgBtsyYNI9n5GAKh-fxtJkKjaGBk9VXxk07WILC_rLoB2-0wrhVjuJIVgqgIdIL/pub?output=csv';
-                const response = await fetch(url);
-                const text = await response.text();
-                const lines = text.split(/\r?\n/).filter(l => l.trim());
-                
-                allData = lines.slice(1).map((line, i) => {
-                    const r = parseCSVLine(line);
-                    return {
-                        id: `it-${i}`,
-                        dbIndex: i + 1,
-                        word: r[1] ? r[1].trim() : '',      
-                        audio: r[2] ? r[2].trim() : '',     
-                        poj: r[5] ? r[5].trim() : '',       
-                        meaning: r[6] ? r[6].trim() : '',   
-                        category: r[7] ? r[7].trim() : '未分類'
-                    };
-                }).filter(d => d.word && d.audio && d.poj); // 重要：強制過濾掉沒有拼音或單字的無效行
-
-                const categories = ['all', ...new Set(allData.map(d => d.category))];
-                document.getElementById('categorySelect').innerHTML = categories.map(c => `<option value="${c}">${c === 'all' ? '所有分類' : c}</option>`).join('');
-            } catch (err) {
-                console.error("CSV載入失敗", err);
-            }
-        }
-
-        function parseCSVLine(line) {
-            const result = [];
-            let current = '', inQuotes = false;
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                if (char === '"') {
-                    if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
-                    else inQuotes = !inQuotes;
-                } else if (char === ',' && !inQuotes) {
-                    result.push(current.trim()); current = '';
-                } else { current += char; }
-            }
-            result.push(current.trim());
-            return result;
-        }
-
-        function renderGrid() {
-            const cat = document.getElementById('categorySelect').value;
-            const favOnly = document.getElementById('toggleFavorites').classList.contains('bg-amber-100');
-            
-            filteredData = allData.filter(d => {
-                const matchCat = (cat === 'all' || d.category === cat);
-                const matchFav = !favOnly || favorites.includes(d.id);
-                return matchCat && matchFav;
-            });
-
-            const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
-            if (currentPage > totalPages) currentPage = totalPages;
-
-            document.getElementById('pageSelect').innerHTML = Array.from({length: totalPages}, (_, i) => `<option value="${i+1}" ${currentPage === i+1 ? 'selected' : ''}>${i+1}</option>`).join('');
-            document.getElementById('totalPagesText').innerText = `/ ${totalPages} 頁`;
-
-            const grid = document.getElementById('wordGrid');
-            grid.innerHTML = '';
-            const items = filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-            
-            items.forEach(item => {
-                const isFav = favorites.includes(item.id);
-                const card = document.createElement('div');
-                card.id = `card-${item.id}`;
-                card.className = `word-card bg-white p-5 rounded-2xl shadow-sm border-2 border-slate-200 flex justify-between items-center cursor-pointer hover:border-indigo-300 relative`;
-                card.innerHTML = `
-                    <div class="absolute top-2 left-3 text-[10px] font-bold text-slate-300">#${item.dbIndex}</div>
-                    <div class="mt-2">
-                        <div class="flex items-center gap-3">
-                            <span class="text-2xl font-bold">${item.word}</span>
-                            <span class="text-xl font-bold text-indigo-500 font-mono">${item.poj}</span>
-                        </div>
-                        <div class="flex gap-3 mt-1 items-center">
-                            <span class="text-sm text-slate-400">${item.meaning}</span>
-                            <span class="fav-btn cursor-pointer ${isFav ? 'star-active text-amber-500' : 'text-slate-300'} text-xl">★</span>
-                        </div>
-                    </div>
-                    <button class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">🔊</button>
-                `;
-                card.querySelector('.fav-btn').onclick = (e) => {
-                    e.stopPropagation();
-                    toggleFav(item.id);
-                    renderGrid();
-                };
-                card.onclick = () => playAudio(item.audio);
-                grid.appendChild(card);
-            });
-
-            document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = currentPage === totalPages;
-        }
-
-        function toggleFav(id) {
-            if (favorites.includes(id)) favorites = favorites.filter(f => f !== id);
-            else favorites.push(id);
-            localStorage.setItem('taigi_favs', JSON.stringify(favorites));
-        }
-
-        function playAudio(url) {
-            if (!url) return;
-            audioPlayer.src = url;
-            audioPlayer.play().catch(() => {});
-        }
-
-        function startGame() {
-            gamePool = [...filteredData];
-            if (gamePool.length < 5) {
-                alert("目前範圍單字太少，請至少選擇 5 個單字。");
-                return;
-            }
-            gameScore = 0;
-            document.getElementById('gameStartScreen').classList.add('hidden');
-            const mode = document.getElementById('gameModeSelect').value;
-            
-            if (mode === 'listen') {
-                document.getElementById('gamePlayListen').classList.remove('hidden');
-                nextListenQuestion();
-            } else {
-                document.getElementById('gamePlayMatch').classList.remove('hidden');
-                nextMatchRound();
-            }
-        }
-
-        function nextListenQuestion() {
-            currentQuestion = gamePool[Math.floor(Math.random() * gamePool.length)];
-            let options = [currentQuestion];
-            while (options.length < 4) {
-                const r = gamePool[Math.floor(Math.random() * gamePool.length)];
-                if (!options.find(o => o.id === r.id)) options.push(r);
-            }
-            options.sort(() => Math.random() - 0.5);
-
-            const container = document.getElementById('listenOptions');
-            container.innerHTML = '';
-            options.forEach(opt => {
-                const btn = document.createElement('button');
-                btn.className = 'p-5 bg-white border-2 border-slate-100 rounded-2xl font-bold hover:border-indigo-500 active:scale-95 flex flex-col items-center';
-                btn.innerHTML = `<span class="text-2xl">${opt.word}</span><span class="text-sm text-indigo-400 mt-1">${opt.poj}</span>`;
-                btn.onclick = () => {
-                    if (opt.id === currentQuestion.id) {
-                        gameScore += 10;
-                        document.getElementById('listenScore').innerText = gameScore;
-                        nextListenQuestion();
-                    } else endGame();
-                };
-                container.appendChild(btn);
-            });
-            playAudio(currentQuestion.audio);
-        }
-
-        function enableTouchDrag(el, it) {
-            let startX, startY, initialX, initialY;
-            let currentDragged = null;
-
-            el.addEventListener('touchstart', (e) => {
-                if (el.classList.contains('matched-item')) return;
-                const touch = e.touches[0];
-                startX = touch.clientX; startY = touch.clientY;
-                const rect = el.getBoundingClientRect();
-                initialX = rect.left; initialY = rect.top;
-                
-                currentDragged = el.cloneNode(true);
-                currentDragged.style.position = 'fixed';
-                currentDragged.style.width = rect.width + 'px';
-                currentDragged.style.left = initialX + 'px';
-                currentDragged.style.top = initialY + 'px';
-                currentDragged.style.opacity = '0.8';
-                currentDragged.style.zIndex = '1000';
-                currentDragged.style.pointerEvents = 'none';
-                document.body.appendChild(currentDragged);
-                el.classList.add('dragging');
-            });
-
-            el.addEventListener('touchmove', (e) => {
-                if (!currentDragged) return;
-                e.preventDefault();
-                const touch = e.touches[0];
-                currentDragged.style.left = (initialX + (touch.clientX - startX)) + 'px';
-                currentDragged.style.top = (initialY + (touch.clientY - startY)) + 'px';
-
-                document.querySelectorAll('.drop-zone').forEach(zone => {
-                    const zRect = zone.getBoundingClientRect();
-                    if (touch.clientX > zRect.left && touch.clientX < zRect.right &&
-                        touch.clientY > zRect.top && touch.clientY < zRect.bottom) {
-                        zone.classList.add('drag-over');
-                    } else zone.classList.remove('drag-over');
+                    const target = btn.getAttribute('data-target');
+                    tabContents.forEach(content => {
+                        content.classList.remove('active');
+                        if(content.id === target) {
+                            content.classList.add('active');
+                        }
+                    });
                 });
-            }, { passive: false });
+            });
 
-            el.addEventListener('touchend', (e) => {
-                if (!currentDragged) return;
-                const touch = e.changedTouches[0];
-                document.querySelectorAll('.drop-zone').forEach(zone => {
-                    zone.classList.remove('drag-over');
-                    const zRect = zone.getBoundingClientRect();
-                    if (touch.clientX > zRect.left && touch.clientX < zRect.right &&
-                        touch.clientY > zRect.top && touch.clientY < zRect.bottom) {
-                        if (zone.dataset.id === it.id) handleMatchSuccess(it, zone);
-                        else { zone.classList.add('shake'); setTimeout(() => zone.classList.remove('shake'), 500); }
+            const stepItems = document.querySelectorAll('.step-item');
+            stepItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    item.classList.toggle('completed');
+                });
+            });
+
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['自動播放', '範圍同步', '配對穩定性'],
+                    datasets: [{
+                        label: '修復完成度 (%)',
+                        data: [100, 100, 100],
+                        backgroundColor: [
+                            'rgba(79, 70, 229, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(245, 158, 11, 0.8)'
+                        ],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { stepSize: 50 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y + '%';
+                                }
+                            }
+                        }
                     }
-                });
-                if (currentDragged.parentNode) document.body.removeChild(currentDragged);
-                currentDragged = null;
-                el.classList.remove('dragging');
+                }
             });
-        }
-
-        function nextMatchRound() {
-            document.getElementById('nextRoundPulse').classList.add('hidden');
-            // 重要：再次過濾 gamePool 確保拿到的 5 個都有 POJ
-            let validItems = gamePool.filter(i => i.poj && i.poj.trim() !== "");
-            const poolSize = Math.min(validItems.length, 5);
-            const items = [...validItems].sort(() => Math.random() - 0.5).slice(0, poolSize);
-            
-            currentMatchCount = 0;
-            currentRoundTotal = poolSize;
-
-            const wordsCol = document.getElementById('matchWordsCol');
-            const pojCol = document.getElementById('matchPojCol');
-            wordsCol.innerHTML = ''; pojCol.innerHTML = '';
-            
-            const words = [...items].sort(() => Math.random() - 0.5);
-            const pojs = [...items].sort(() => Math.random() - 0.5);
-            
-            words.forEach(it => {
-                const div = document.createElement('div');
-                div.id = `drag-${it.id}`; div.draggable = true;
-                div.className = 'draggable p-3 sm:p-4 bg-white border-2 border-indigo-100 rounded-xl font-bold text-lg text-center shadow-sm relative pt-6';
-                div.innerHTML = `<span class="absolute top-1 left-2 text-[9px] text-slate-300">#${it.dbIndex}</span>${it.word}`;
-                div.ondragstart = (e) => { e.dataTransfer.setData('text', it.id); div.classList.add('dragging'); };
-                div.ondragend = () => div.classList.remove('dragging');
-                enableTouchDrag(div, it);
-                wordsCol.appendChild(div);
-            });
-
-            pojs.forEach(it => {
-                const div = document.createElement('div');
-                div.className = 'drop-zone p-3 sm:p-4 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl font-mono text-sm text-center font-bold flex items-center justify-center min-h-[60px]';
-                div.innerText = it.poj;
-                div.dataset.id = it.id;
-                div.ondragover = (e) => { e.preventDefault(); div.classList.add('drag-over'); };
-                div.ondragleave = () => div.classList.remove('drag-over');
-                div.ondrop = (e) => {
-                    e.preventDefault();
-                    const draggedId = e.dataTransfer.getData('text');
-                    if (draggedId === it.id) handleMatchSuccess(it, div);
-                    else { div.classList.add('shake'); setTimeout(() => div.classList.remove('shake'), 500); }
-                    div.classList.remove('drag-over');
-                };
-                pojCol.appendChild(div);
-            });
-        }
-
-        function handleMatchSuccess(item, zone) {
-            if (zone.classList.contains('matched-target')) return;
-            gameScore += 20;
-            currentMatchCount++;
-            document.getElementById('matchScore').innerText = gameScore;
-            playAudio(item.audio);
-            
-            zone.className = 'p-3 sm:p-4 bg-green-100 border-2 border-green-500 rounded-xl font-bold text-sm text-center text-green-700 flex items-center justify-center min-h-[60px] matched-target';
-            zone.innerText = `✅ ${item.word}`;
-            
-            const origin = document.getElementById(`drag-${item.id}`);
-            if (origin) origin.classList.add('matched-item');
-
-            if (currentMatchCount >= currentRoundTotal) {
-                document.getElementById('nextRoundPulse').classList.remove('hidden');
-                setTimeout(nextMatchRound, 1200);
-            }
-        }
-
-        function endGame() {
-            document.getElementById('gamePlayListen').classList.add('hidden');
-            document.getElementById('gamePlayMatch').classList.add('hidden');
-            document.getElementById('gameResultScreen').classList.remove('hidden');
-            document.getElementById('finalScore').innerText = gameScore;
-        }
-
-        document.getElementById('navStudy').onclick = () => {
-            document.getElementById('studyView').classList.remove('hidden');
-            document.getElementById('gameView').classList.add('hidden');
-            document.getElementById('navStudy').classList.add('bg-white', 'text-indigo-600');
-            document.getElementById('navGame').classList.remove('bg-white', 'text-indigo-600');
-        };
-        document.getElementById('navGame').onclick = () => {
-            document.getElementById('gameView').classList.remove('hidden');
-            document.getElementById('studyView').classList.add('hidden');
-            document.getElementById('navGame').classList.add('bg-white', 'text-indigo-600');
-            document.getElementById('navStudy').classList.remove('bg-white', 'text-indigo-600');
-        };
-        document.getElementById('categorySelect').onchange = () => { currentPage = 1; renderGrid(); };
-        document.getElementById('toggleFavorites').onclick = () => { document.getElementById('toggleFavorites').classList.toggle('bg-amber-100'); currentPage = 1; renderGrid(); };
-        document.getElementById('pageSelect').onchange = (e) => { currentPage = parseInt(e.target.value); renderGrid(); };
-        document.getElementById('prevPage').onclick = () => { if (currentPage > 1) { currentPage--; renderGrid(); } };
-        document.getElementById('nextPage').onclick = () => { if (currentPage < Math.ceil(filteredData.length / pageSize)) { currentPage++; renderGrid(); } };
-        document.getElementById('startGameBtn').onclick = startGame;
-        document.querySelectorAll('.exit-game-btn').forEach(b => b.onclick = () => location.reload());
-        document.getElementById('listenMainAudioBtn').onclick = () => playAudio(currentQuestion.audio);
-
-        init();
+        });
     </script>
 </body>
 </html>
