@@ -46,13 +46,11 @@
     </header>
 
     <main class="flex-grow p-4 sm:p-6 max-w-4xl w-full mx-auto">
-        <!-- 載入中遮罩 -->
         <div id="loadingOverlay" class="flex flex-col items-center justify-center py-20">
             <div class="loader mb-4"></div>
             <p class="text-slate-500">正在準備教材內容...</p>
         </div>
 
-        <!-- 學習視窗 -->
         <div id="studyView" class="hidden">
             <div class="flex flex-wrap gap-2 mb-6">
                 <button id="playPageBtn" class="flex-1 py-3 bg-indigo-100 text-indigo-700 font-bold rounded-xl hover:bg-indigo-200">📄 播放本頁</button>
@@ -71,7 +69,6 @@
             </div>
         </div>
 
-        <!-- 遊戲視窗 -->
         <div id="gameView" class="hidden">
             <div id="gameStartScreen" class="py-12 bg-white rounded-3xl shadow-xl border p-8 text-center">
                 <h2 class="text-3xl font-bold mb-4 text-slate-800">挑戰遊戲</h2>
@@ -86,7 +83,6 @@
                 <button id="startGameBtn" class="w-full max-w-sm py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg hover:bg-indigo-700 transition-all active:scale-95 text-lg">開始練習</button>
             </div>
 
-            <!-- 聽力遊戲介面 -->
             <div id="gamePlayListen" class="hidden">
                 <div class="flex justify-between items-center mb-6">
                     <div class="bg-indigo-100 px-4 py-2 rounded-full font-bold text-indigo-700">得分: <span id="listenScore">0</span></div>
@@ -99,7 +95,6 @@
                 <div id="listenOptions" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
             </div>
 
-            <!-- 配對遊戲介面 -->
             <div id="gamePlayMatch" class="hidden">
                 <div class="flex justify-between items-center mb-6">
                     <div class="bg-indigo-100 px-4 py-2 rounded-full font-bold text-indigo-700">得分: <span id="matchScore">0</span></div>
@@ -112,7 +107,6 @@
                 <div id="nextRoundPulse" class="hidden mt-6 text-center text-green-600 font-bold animate-bounce">太棒了！準備進入下一關...</div>
             </div>
 
-            <!-- 結算介面 -->
             <div id="gameResultScreen" class="hidden text-center py-16 bg-white rounded-3xl shadow-xl p-8">
                 <h2 class="text-2xl font-bold mb-4 text-slate-500">練習完成！</h2>
                 <p class="text-slate-400 font-medium">您的本次得分</p>
@@ -126,7 +120,6 @@
     <audio id="audioPlayer" class="hidden"></audio>
 
     <script>
-        // --- 狀態管理 ---
         let allData = [];
         let filteredData = [];
         let favorites = JSON.parse(localStorage.getItem('taigi_favs') || '[]');
@@ -138,10 +131,11 @@
         let gameScore = 0;
         let gamePool = [];
         let currentQuestion = null;
+        let currentMatchCount = 0; // 新增：追蹤目前配對成功數量
+        let currentRoundTotal = 0; // 新增：追蹤本回合總題數
 
         const audioPlayer = document.getElementById('audioPlayer');
 
-        // --- 初始化 ---
         async function init() {
             await loadCSVData();
             document.getElementById('loadingOverlay').classList.add('hidden');
@@ -319,7 +313,6 @@
             audioPlayer.pause();
         }
 
-        // --- 遊戲邏輯 ---
         function startGame() {
             gamePool = [...filteredData];
             if (gamePool.length < 4) {
@@ -382,7 +375,7 @@
             playAudio(currentQuestion.audio);
         }
 
-        function enableTouchDrag(el, it, onMatch) {
+        function enableTouchDrag(el, it) {
             let startX, startY, initialX, initialY;
             let currentDragged = null;
 
@@ -432,7 +425,6 @@
                 if (!currentDragged) return;
                 const touch = e.changedTouches[0];
                 const dropZones = document.querySelectorAll('.drop-zone');
-                let foundMatch = false;
                 
                 dropZones.forEach(zone => {
                     const zRect = zone.getBoundingClientRect();
@@ -440,7 +432,6 @@
                     if (touch.clientX > zRect.left && touch.clientX < zRect.right &&
                         touch.clientY > zRect.top && touch.clientY < zRect.bottom) {
                         if (zone.dataset.id === it.id) {
-                            foundMatch = true;
                             handleMatchSuccess(it, zone);
                         } else {
                             zone.classList.add('shake');
@@ -449,7 +440,9 @@
                     }
                 });
 
-                document.body.removeChild(currentDragged);
+                if (currentDragged && currentDragged.parentNode) {
+                    document.body.removeChild(currentDragged);
+                }
                 currentDragged = null;
                 el.classList.remove('dragging');
             });
@@ -459,6 +452,10 @@
             document.getElementById('nextRoundPulse').classList.add('hidden');
             const poolSize = Math.min(gamePool.length, 5);
             const items = [...gamePool].sort(() => Math.random() - 0.5).slice(0, poolSize);
+            
+            currentMatchCount = 0; // 重置配對計數
+            currentRoundTotal = poolSize; // 記錄本回合總數
+
             const wordsCol = document.getElementById('matchWordsCol');
             const pojCol = document.getElementById('matchPojCol');
             wordsCol.innerHTML = ''; pojCol.innerHTML = '';
@@ -480,9 +477,7 @@
                 };
                 div.ondragend = () => div.classList.remove('dragging');
                 
-                // 修正手機版的拖放呼叫邏輯
                 enableTouchDrag(div, it);
-                
                 wordsCol.appendChild(div);
             });
 
@@ -509,27 +504,33 @@
         }
 
         function handleMatchSuccess(item, zone) {
-            if (zone.classList.contains('bg-green-100')) return;
+            // 避免重複配對同一個目標
+            if (zone.classList.contains('matched-target')) return;
+            
             gameScore += 20;
+            currentMatchCount++; // 增加已配對計數
+            
             document.getElementById('matchScore').innerText = gameScore;
             playAudio(item.audio);
             
-            // 標記區塊為成功配對
-            zone.className = 'p-3 sm:p-4 bg-green-100 border-2 border-green-500 rounded-xl font-bold text-sm sm:text-base text-center text-green-700 flex items-center justify-center min-h-[60px]';
+            zone.className = 'p-3 sm:p-4 bg-green-100 border-2 border-green-500 rounded-xl font-bold text-sm sm:text-base text-center text-green-700 flex items-center justify-center min-h-[60px] matched-target';
             zone.innerText = `✅ ${item.word}`;
-            zone.classList.remove('drop-zone'); // 移除配對區標記
+            zone.classList.remove('drop-zone');
 
             const origin = document.getElementById(`drag-${item.id}`);
             if (origin) {
                 origin.classList.add('matched-item');
                 origin.draggable = false;
+                origin.classList.remove('dragging');
             }
 
-            // 檢查是否還有未配對的項目 (電腦版與手機版通用檢查)
-            const remaining = document.querySelectorAll('.draggable:not(.matched-item)');
-            if (remaining.length === 0) {
+            // 使用明確計數器檢查是否完成回合，避免 DOM 查詢延遲
+            if (currentMatchCount >= currentRoundTotal) {
                 document.getElementById('nextRoundPulse').classList.remove('hidden');
-                setTimeout(nextMatchRound, 1500);
+                // 延遲一段時間進入下一題，確保語音播完且視覺上有反饋
+                setTimeout(() => {
+                    nextMatchRound();
+                }, 1200);
             }
         }
 
@@ -540,7 +541,6 @@
             document.getElementById('finalScore').innerText = gameScore;
         }
 
-        // --- 事件綁定 ---
         document.getElementById('navStudy').onclick = () => {
             document.getElementById('studyView').classList.remove('hidden');
             document.getElementById('gameView').classList.add('hidden');
