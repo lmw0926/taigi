@@ -18,7 +18,7 @@
         .draggable:active { cursor: grabbing; }
         .dragging { opacity: 0.5; transform: scale(1.05); }
         .drop-zone.drag-over { background-color: #e0e7ff; border-color: #6366f1; transform: scale(1.02); }
-        .matched-item { opacity: 0.3; pointer-events: none; }
+        .matched-item { opacity: 0.3 !important; pointer-events: none !important; border-style: solid !important; border-color: #e2e8f0 !important; }
         
         .star-active { color: #f59e0b !important; fill: #f59e0b; }
         .shake { animation: shake 0.5s linear; }
@@ -111,6 +111,9 @@
                     <div id="matchWordsCol" class="space-y-3"></div>
                     <div id="matchPojCol" class="space-y-3"></div>
                 </div>
+                <div id="nextRoundPulse" class="hidden mt-6 text-center text-green-600 font-bold animate-bounce">
+                    太棒了！準備進入下一關...
+                </div>
             </div>
             
             <!-- 結算介面 -->
@@ -162,7 +165,7 @@
                     const r = parseCSVLine(line);
                     return {
                         id: `it-${i}`,
-                        dbIndex: i + 1,        // 題庫原始編號 (從 1 開始)
+                        dbIndex: i + 1,
                         word: r[1] || '',      
                         audio: r[2] || '',     
                         poj: r[5] || '',       
@@ -194,7 +197,6 @@
             return result;
         }
 
-        // --- UI 渲染 ---
         function renderGrid() {
             const cat = document.getElementById('categorySelect').value;
             const favOnly = document.getElementById('toggleFavorites').classList.contains('bg-amber-100');
@@ -236,13 +238,11 @@
                     </div>
                     <button class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">🔊</button>
                 `;
-                
                 card.querySelector('.fav-btn').onclick = (e) => {
                     e.stopPropagation();
                     toggleFav(item.id);
                     renderGrid();
                 };
-                
                 card.onclick = () => {
                     if (isAutoPlaying) {
                         currentPlayIndex = filteredData.findIndex(d => d.id === item.id);
@@ -278,7 +278,6 @@
             audioPlayer.play().catch(() => {});
         }
 
-        // --- 自動播放邏輯 ---
         function startAutoPlay(isAll) {
             isAutoPlaying = true;
             isPlayPageOnly = !isAll;
@@ -318,24 +317,21 @@
             audioPlayer.pause();
         }
 
-        // --- 遊戲邏輯 ---
         function startGame() {
-            // 直接使用當前導覽列選取的範圍 (filteredData)
             gamePool = [...filteredData];
-
             if (gamePool.length < 4) {
                 alert("目前選取的範圍單字太少 (至少需要 4 個)！請更換分類或增加收藏。"); return;
             }
-
             gameScore = 0;
             document.getElementById('gameStartScreen').classList.add('hidden');
             const mode = document.getElementById('gameModeSelect').value;
-            
             if (mode === 'listen') {
                 document.getElementById('gamePlayListen').classList.remove('hidden');
+                document.getElementById('listenScore').innerText = '0';
                 nextListenQuestion();
             } else {
                 document.getElementById('gamePlayMatch').classList.remove('hidden');
+                document.getElementById('matchScore').innerText = '0';
                 nextMatchRound();
             }
         }
@@ -381,12 +377,12 @@
             playAudio(currentQuestion.audio);
         }
 
-        // --- 手機觸控拖拉模擬邏輯 ---
         function enableTouchDrag(el, onMatch) {
             let startX, startY, initialX, initialY;
             let currentDragged = null;
 
             el.addEventListener('touchstart', (e) => {
+                if (el.classList.contains('matched-item')) return;
                 const touch = e.touches[0];
                 startX = touch.clientX;
                 startY = touch.clientY;
@@ -415,7 +411,6 @@
                 currentDragged.style.left = (initialX + dx) + 'px';
                 currentDragged.style.top = (initialY + dy) + 'px';
 
-                // 檢查是否碰撞到 drop-zone
                 const dropZones = document.querySelectorAll('.drop-zone');
                 dropZones.forEach(zone => {
                     const zRect = zone.getBoundingClientRect();
@@ -432,16 +427,13 @@
                 if (!currentDragged) return;
                 const touch = e.changedTouches[0];
                 const dropZones = document.querySelectorAll('.drop-zone');
-                let foundMatch = false;
-
+                
                 dropZones.forEach(zone => {
                     const zRect = zone.getBoundingClientRect();
                     zone.classList.remove('drag-over');
                     if (touch.clientX > zRect.left && touch.clientX < zRect.right &&
                         touch.clientY > zRect.top && touch.clientY < zRect.bottom) {
-                        // 觸發自定義比對邏輯
                         onMatch(zone);
-                        foundMatch = true;
                     }
                 });
 
@@ -452,7 +444,11 @@
         }
 
         function nextMatchRound() {
+            // 隱藏下一關提示
+            document.getElementById('nextRoundPulse').classList.add('hidden');
+            
             const poolSize = Math.min(gamePool.length, 5);
+            // 每次重新隨機取樣
             const items = [...gamePool].sort(() => Math.random() - 0.5).slice(0, poolSize);
             const wordsCol = document.getElementById('matchWordsCol');
             const pojCol = document.getElementById('matchPojCol');
@@ -468,14 +464,13 @@
                 div.className = 'draggable p-3 sm:p-4 bg-white border-2 border-indigo-100 rounded-xl font-bold text-lg sm:text-xl text-center shadow-sm relative pt-6';
                 div.innerHTML = `<span class="absolute top-1 left-2 text-[9px] text-slate-300">#${it.dbIndex}</span>${it.word}`;
                 
-                // PC 拖拉
                 div.ondragstart = (e) => {
+                    if (div.classList.contains('matched-item')) { e.preventDefault(); return; }
                     e.dataTransfer.setData('text', it.id);
                     div.classList.add('dragging');
                 };
                 div.ondragend = () => div.classList.remove('dragging');
 
-                // 手機拖拉
                 enableTouchDrag(div, (targetZone) => {
                     if (targetZone.dataset.id === it.id) {
                         handleMatchSuccess(it, targetZone);
@@ -494,7 +489,6 @@
                 div.innerText = it.poj;
                 div.dataset.id = it.id;
 
-                // PC 接收
                 div.ondragover = (e) => { e.preventDefault(); div.classList.add('drag-over'); };
                 div.ondragleave = () => div.classList.remove('drag-over');
                 div.ondrop = (e) => {
@@ -513,16 +507,27 @@
         }
 
         function handleMatchSuccess(item, zone) {
+            // 防止重複配對加分
+            if (zone.classList.contains('bg-green-100')) return;
+
             gameScore += 20;
             document.getElementById('matchScore').innerText = gameScore;
             playAudio(item.audio);
+            
             zone.className = 'p-3 sm:p-4 bg-green-100 border-2 border-green-500 rounded-xl font-bold text-sm sm:text-base text-center text-green-700 flex items-center justify-center min-h-[60px]';
             zone.innerText = `✅ ${item.word}`;
-            const origin = document.getElementById(`drag-${item.id}`);
-            if (origin) origin.classList.add('matched-item');
             
-            if (!document.querySelector('.draggable:not(.matched-item)')) {
-                setTimeout(nextMatchRound, 1000);
+            const origin = document.getElementById(`drag-${item.id}`);
+            if (origin) {
+                origin.classList.add('matched-item');
+                origin.draggable = false;
+            }
+            
+            // 檢查本輪是否結束
+            const remaining = document.querySelectorAll('.draggable:not(.matched-item)');
+            if (remaining.length === 0) {
+                document.getElementById('nextRoundPulse').classList.remove('hidden');
+                setTimeout(nextMatchRound, 1500);
             }
         }
 
