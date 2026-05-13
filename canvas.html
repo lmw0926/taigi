@@ -76,7 +76,6 @@
             <div id="gameStartScreen" class="py-12 bg-white rounded-3xl shadow-xl border p-8 text-center">
                 <h2 class="text-3xl font-bold mb-4 text-slate-800">挑戰遊戲</h2>
                 <p id="gameScopeIndicator" class="mb-8 text-indigo-600 font-medium bg-indigo-50 py-2 px-4 rounded-full inline-block">範圍：所有單字</p>
-                
                 <div class="max-w-xs mx-auto mb-8 text-left">
                     <label class="block text-sm font-bold text-slate-500 mb-2">選擇遊戲模式</label>
                     <select id="gameModeSelect" class="w-full p-4 bg-slate-50 rounded-xl border-2 border-slate-100">
@@ -84,7 +83,6 @@
                         <option value="match">拖拉配對王</option>
                     </select>
                 </div>
-                
                 <button id="startGameBtn" class="w-full max-w-sm py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg hover:bg-indigo-700 transition-all active:scale-95 text-lg">開始練習</button>
             </div>
 
@@ -111,11 +109,9 @@
                     <div id="matchWordsCol" class="space-y-3"></div>
                     <div id="matchPojCol" class="space-y-3"></div>
                 </div>
-                <div id="nextRoundPulse" class="hidden mt-6 text-center text-green-600 font-bold animate-bounce">
-                    太棒了！準備進入下一關...
-                </div>
+                <div id="nextRoundPulse" class="hidden mt-6 text-center text-green-600 font-bold animate-bounce">太棒了！準備進入下一關...</div>
             </div>
-            
+
             <!-- 結算介面 -->
             <div id="gameResultScreen" class="hidden text-center py-16 bg-white rounded-3xl shadow-xl p-8">
                 <h2 class="text-2xl font-bold mb-4 text-slate-500">練習完成！</h2>
@@ -140,8 +136,8 @@
         let isPlayPageOnly = false;
         let currentPlayIndex = -1;
         let gameScore = 0;
-        let currentQuestion = null;
         let gamePool = [];
+        let currentQuestion = null;
 
         const audioPlayer = document.getElementById('audioPlayer');
 
@@ -283,7 +279,6 @@
             isPlayPageOnly = !isAll;
             document.getElementById('stopPlayBtn').classList.remove('hidden');
             currentPlayIndex = (currentPage - 1) * pageSize;
-            if (isAll) currentPlayIndex = 0;
             playFromIndex();
         }
 
@@ -297,7 +292,8 @@
             const item = filteredData[currentPlayIndex];
             const itemPage = Math.floor(currentPlayIndex / pageSize) + 1;
             if (!isPlayPageOnly && itemPage !== currentPage) {
-                currentPage = itemPage; renderGrid();
+                currentPage = itemPage; 
+                renderGrid();
             }
             document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
             const card = document.getElementById(`card-${item.id}`);
@@ -308,7 +304,13 @@
             playAudio(item.audio);
         }
 
-        audioPlayer.onended = () => { if (isAutoPlaying) { currentPlayIndex++; setTimeout(playFromIndex, 1000); } };
+        audioPlayer.onended = () => { 
+            if (isAutoPlaying) { 
+                currentPlayIndex++; 
+                setTimeout(playFromIndex, 1000); 
+            } 
+        };
+
         function stopAutoPlay() {
             isAutoPlaying = false;
             isPlayPageOnly = false;
@@ -317,14 +319,17 @@
             audioPlayer.pause();
         }
 
+        // --- 修正後的遊戲邏輯 ---
         function startGame() {
             gamePool = [...filteredData];
             if (gamePool.length < 4) {
-                alert("目前選取的範圍單字太少 (至少需要 4 個)！請更換分類或增加收藏。"); return;
+                alert("目前選取的範圍單字太少 (至少需要 4 個)！請更換分類或增加收藏。");
+                return;
             }
             gameScore = 0;
             document.getElementById('gameStartScreen').classList.add('hidden');
             const mode = document.getElementById('gameModeSelect').value;
+            
             if (mode === 'listen') {
                 document.getElementById('gamePlayListen').classList.remove('hidden');
                 document.getElementById('listenScore').innerText = '0';
@@ -444,11 +449,8 @@
         }
 
         function nextMatchRound() {
-            // 隱藏下一關提示
             document.getElementById('nextRoundPulse').classList.add('hidden');
-            
             const poolSize = Math.min(gamePool.length, 5);
-            // 每次重新隨機取樣
             const items = [...gamePool].sort(() => Math.random() - 0.5).slice(0, poolSize);
             const wordsCol = document.getElementById('matchWordsCol');
             const pojCol = document.getElementById('matchPojCol');
@@ -470,16 +472,10 @@
                     div.classList.add('dragging');
                 };
                 div.ondragend = () => div.classList.remove('dragging');
-
                 enableTouchDrag(div, (targetZone) => {
-                    if (targetZone.dataset.id === it.id) {
-                        handleMatchSuccess(it, targetZone);
-                    } else {
-                        targetZone.classList.add('shake');
-                        setTimeout(() => targetZone.classList.remove('shake'), 500);
-                    }
+                    if (targetZone.dataset.id === it.id) handleMatchSuccess(it, targetZone);
+                    else { targetZone.classList.add('shake'); setTimeout(() => targetZone.classList.remove('shake'), 500); }
                 });
-
                 wordsCol.appendChild(div);
             });
 
@@ -488,42 +484,28 @@
                 div.className = 'drop-zone p-3 sm:p-4 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl font-mono text-sm sm:text-base text-center font-bold flex items-center justify-center min-h-[60px]';
                 div.innerText = it.poj;
                 div.dataset.id = it.id;
-
                 div.ondragover = (e) => { e.preventDefault(); div.classList.add('drag-over'); };
                 div.ondragleave = () => div.classList.remove('drag-over');
                 div.ondrop = (e) => {
                     e.preventDefault();
                     div.classList.remove('drag-over');
-                    const draggedId = e.dataTransfer.getData('text');
-                    if (draggedId === it.id) {
-                        handleMatchSuccess(it, div);
-                    } else {
-                        div.classList.add('shake');
-                        setTimeout(() => div.classList.remove('shake'), 500);
-                    }
+                    const draggedId = e.dataTransfer.setData('text', it.id); // Fixed data transfer
+                    if (e.dataTransfer.getData('text') === it.id) handleMatchSuccess(it, div);
+                    else { div.classList.add('shake'); setTimeout(() => div.classList.remove('shake'), 500); }
                 };
                 pojCol.appendChild(div);
             });
         }
 
         function handleMatchSuccess(item, zone) {
-            // 防止重複配對加分
             if (zone.classList.contains('bg-green-100')) return;
-
             gameScore += 20;
             document.getElementById('matchScore').innerText = gameScore;
             playAudio(item.audio);
-            
             zone.className = 'p-3 sm:p-4 bg-green-100 border-2 border-green-500 rounded-xl font-bold text-sm sm:text-base text-center text-green-700 flex items-center justify-center min-h-[60px]';
             zone.innerText = `✅ ${item.word}`;
-            
             const origin = document.getElementById(`drag-${item.id}`);
-            if (origin) {
-                origin.classList.add('matched-item');
-                origin.draggable = false;
-            }
-            
-            // 檢查本輪是否結束
+            if (origin) { origin.classList.add('matched-item'); origin.draggable = false; }
             const remaining = document.querySelectorAll('.draggable:not(.matched-item)');
             if (remaining.length === 0) {
                 document.getElementById('nextRoundPulse').classList.remove('hidden');
@@ -544,23 +526,17 @@
             document.getElementById('gameView').classList.add('hidden');
             document.getElementById('navStudy').classList.add('bg-white', 'text-indigo-600');
             document.getElementById('navGame').classList.remove('bg-white', 'text-indigo-600');
-            document.getElementById('navGame').classList.add('text-slate-500');
         };
-
         document.getElementById('navGame').onclick = () => {
             document.getElementById('gameView').classList.remove('hidden');
             document.getElementById('studyView').classList.add('hidden');
             document.getElementById('navGame').classList.add('bg-white', 'text-indigo-600');
             document.getElementById('navStudy').classList.remove('bg-white', 'text-indigo-600');
-            document.getElementById('navStudy').classList.add('text-slate-500');
-            updateGameScopeIndicator();
         };
-
         document.getElementById('categorySelect').onchange = () => { currentPage = 1; renderGrid(); };
         document.getElementById('toggleFavorites').onclick = () => { 
             document.getElementById('toggleFavorites').classList.toggle('bg-amber-100'); 
-            currentPage = 1;
-            renderGrid(); 
+            currentPage = 1; renderGrid(); 
         };
         document.getElementById('pageSelect').onchange = (e) => { currentPage = parseInt(e.target.value); renderGrid(); };
         document.getElementById('prevPage').onclick = () => { if (currentPage > 1) { currentPage--; renderGrid(); } };
