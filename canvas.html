@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台語學習通 - 純淨學習版</title>
+    <title>台語學習通 - 穩定修正版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
@@ -13,12 +13,11 @@
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* 拖曳相關樣式 */
         .draggable { cursor: grab; user-select: none; touch-action: none; position: relative; z-index: 10; }
         .draggable:active { cursor: grabbing; }
         .dragging { opacity: 0.5; transform: scale(1.05); }
         .drop-zone.drag-over { background-color: #e0e7ff; border-color: #6366f1; transform: scale(1.02); }
-        .matched-item { opacity: 0.3 !important; pointer-events: none !important; border-style: solid !important; border-color: #e2e8f0 !important; }
+        .matched-item { opacity: 0.3 !important; pointer-events: none !important; }
         
         .star-active { color: #f59e0b !important; fill: #f59e0b; }
         .shake { animation: shake 0.5s linear; }
@@ -126,13 +125,11 @@
         let currentPage = 1;
         const pageSize = 10;
         let isAutoPlaying = false;
-        let isPlayPageOnly = false;
-        let currentPlayIndex = -1;
         let gameScore = 0;
         let gamePool = [];
         let currentQuestion = null;
-        let currentMatchCount = 0; // 新增：追蹤目前配對成功數量
-        let currentRoundTotal = 0; // 新增：追蹤本回合總題數
+        let currentMatchCount = 0;
+        let currentRoundTotal = 0;
 
         const audioPlayer = document.getElementById('audioPlayer');
 
@@ -140,7 +137,6 @@
             await loadCSVData();
             document.getElementById('loadingOverlay').classList.add('hidden');
             document.getElementById('studyView').classList.remove('hidden');
-            updateGameScopeIndicator();
             renderGrid();
         }
 
@@ -156,13 +152,13 @@
                     return {
                         id: `it-${i}`,
                         dbIndex: i + 1,
-                        word: r[1] || '',      
-                        audio: r[2] || '',     
-                        poj: r[5] || '',       
-                        meaning: r[6] || '',   
-                        category: r[7] || '未分類'
+                        word: r[1] ? r[1].trim() : '',      
+                        audio: r[2] ? r[2].trim() : '',     
+                        poj: r[5] ? r[5].trim() : '',       
+                        meaning: r[6] ? r[6].trim() : '',   
+                        category: r[7] ? r[7].trim() : '未分類'
                     };
-                }).filter(d => d.word && d.audio);
+                }).filter(d => d.word && d.audio && d.poj); // 重要：強制過濾掉沒有拼音或單字的無效行
 
                 const categories = ['all', ...new Set(allData.map(d => d.category))];
                 document.getElementById('categorySelect').innerHTML = categories.map(c => `<option value="${c}">${c === 'all' ? '所有分類' : c}</option>`).join('');
@@ -196,8 +192,6 @@
                 const matchFav = !favOnly || favorites.includes(d.id);
                 return matchCat && matchFav;
             });
-
-            updateGameScopeIndicator();
 
             const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
             if (currentPage > totalPages) currentPage = totalPages;
@@ -233,28 +227,12 @@
                     toggleFav(item.id);
                     renderGrid();
                 };
-                card.onclick = () => {
-                    if (isAutoPlaying) {
-                        currentPlayIndex = filteredData.findIndex(d => d.id === item.id);
-                        playFromIndex();
-                    } else {
-                        playAudio(item.audio);
-                    }
-                };
+                card.onclick = () => playAudio(item.audio);
                 grid.appendChild(card);
             });
 
             document.getElementById('prevPage').disabled = currentPage === 1;
             document.getElementById('nextPage').disabled = currentPage === totalPages;
-        }
-
-        function updateGameScopeIndicator() {
-            const cat = document.getElementById('categorySelect').value;
-            const favOnly = document.getElementById('toggleFavorites').classList.contains('bg-amber-100');
-            let text = favOnly ? "範圍：星號收藏" : `範圍：${cat === 'all' ? '所有單字' : cat}`;
-            text += ` (${filteredData.length} 個)`;
-            const el = document.getElementById('gameScopeIndicator');
-            if (el) el.innerText = text;
         }
 
         function toggleFav(id) {
@@ -264,59 +242,15 @@
         }
 
         function playAudio(url) {
+            if (!url) return;
             audioPlayer.src = url;
             audioPlayer.play().catch(() => {});
         }
 
-        function startAutoPlay(isAll) {
-            isAutoPlaying = true;
-            isPlayPageOnly = !isAll;
-            document.getElementById('stopPlayBtn').classList.remove('hidden');
-            currentPlayIndex = (currentPage - 1) * pageSize;
-            playFromIndex();
-        }
-
-        function playFromIndex() {
-            if (!isAutoPlaying || currentPlayIndex >= filteredData.length) {
-                stopAutoPlay(); return;
-            }
-            if (isPlayPageOnly && currentPlayIndex >= currentPage * pageSize) {
-                stopAutoPlay(); return;
-            }
-            const item = filteredData[currentPlayIndex];
-            const itemPage = Math.floor(currentPlayIndex / pageSize) + 1;
-            if (!isPlayPageOnly && itemPage !== currentPage) {
-                currentPage = itemPage; 
-                renderGrid();
-            }
-            document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
-            const card = document.getElementById(`card-${item.id}`);
-            if (card) {
-                card.classList.add('playing');
-                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-            playAudio(item.audio);
-        }
-
-        audioPlayer.onended = () => { 
-            if (isAutoPlaying) { 
-                currentPlayIndex++; 
-                setTimeout(playFromIndex, 1000); 
-            } 
-        };
-
-        function stopAutoPlay() {
-            isAutoPlaying = false;
-            isPlayPageOnly = false;
-            document.getElementById('stopPlayBtn').classList.add('hidden');
-            document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
-            audioPlayer.pause();
-        }
-
         function startGame() {
             gamePool = [...filteredData];
-            if (gamePool.length < 4) {
-                alert("目前選取的範圍單字太少 (至少需要 4 個)！請更換分類或增加收藏。");
+            if (gamePool.length < 5) {
+                alert("目前範圍單字太少，請至少選擇 5 個單字。");
                 return;
             }
             gameScore = 0;
@@ -325,11 +259,9 @@
             
             if (mode === 'listen') {
                 document.getElementById('gamePlayListen').classList.remove('hidden');
-                document.getElementById('listenScore').innerText = '0';
                 nextListenQuestion();
             } else {
                 document.getElementById('gamePlayMatch').classList.remove('hidden');
-                document.getElementById('matchScore').innerText = '0';
                 nextMatchRound();
             }
         }
@@ -346,31 +278,17 @@
             const container = document.getElementById('listenOptions');
             container.innerHTML = '';
             options.forEach(opt => {
-                const isFav = favorites.includes(opt.id);
-                const wrapper = document.createElement('div');
-                wrapper.className = 'relative flex items-center';
-                wrapper.innerHTML = `
-                    <button class="opt-btn flex-grow p-5 bg-white border-2 border-slate-100 rounded-2xl font-bold hover:border-indigo-500 active:scale-95 flex flex-col items-center relative pt-7">
-                        <span class="absolute top-2 left-3 text-[10px] font-bold text-slate-300">#${opt.dbIndex}</span>
-                        <span class="text-2xl">${opt.word}</span>
-                        <span class="text-sm text-indigo-400 font-mono mt-1">${opt.poj}</span>
-                    </button>
-                    <button class="game-fav-btn absolute top-2 right-3 text-2xl ${isFav ? 'star-active text-amber-500' : 'text-slate-200'}">★</button>
-                `;
-                wrapper.querySelector('.opt-btn').onclick = () => {
+                const btn = document.createElement('button');
+                btn.className = 'p-5 bg-white border-2 border-slate-100 rounded-2xl font-bold hover:border-indigo-500 active:scale-95 flex flex-col items-center';
+                btn.innerHTML = `<span class="text-2xl">${opt.word}</span><span class="text-sm text-indigo-400 mt-1">${opt.poj}</span>`;
+                btn.onclick = () => {
                     if (opt.id === currentQuestion.id) {
                         gameScore += 10;
                         document.getElementById('listenScore').innerText = gameScore;
                         nextListenQuestion();
                     } else endGame();
                 };
-                wrapper.querySelector('.game-fav-btn').onclick = (e) => {
-                    e.stopPropagation();
-                    toggleFav(opt.id);
-                    const nowFav = favorites.includes(opt.id);
-                    e.target.className = `game-fav-btn absolute top-2 right-3 text-2xl ${nowFav ? 'star-active text-amber-500' : 'text-slate-200'}`;
-                };
-                container.appendChild(wrapper);
+                container.appendChild(btn);
             });
             playAudio(currentQuestion.audio);
         }
@@ -382,11 +300,9 @@
             el.addEventListener('touchstart', (e) => {
                 if (el.classList.contains('matched-item')) return;
                 const touch = e.touches[0];
-                startX = touch.clientX;
-                startY = touch.clientY;
+                startX = touch.clientX; startY = touch.clientY;
                 const rect = el.getBoundingClientRect();
-                initialX = rect.left;
-                initialY = rect.top;
+                initialX = rect.left; initialY = rect.top;
                 
                 currentDragged = el.cloneNode(true);
                 currentDragged.style.position = 'fixed';
@@ -404,45 +320,31 @@
                 if (!currentDragged) return;
                 e.preventDefault();
                 const touch = e.touches[0];
-                const dx = touch.clientX - startX;
-                const dy = touch.clientY - startY;
-                currentDragged.style.left = (initialX + dx) + 'px';
-                currentDragged.style.top = (initialY + dy) + 'px';
+                currentDragged.style.left = (initialX + (touch.clientX - startX)) + 'px';
+                currentDragged.style.top = (initialY + (touch.clientY - startY)) + 'px';
 
-                const dropZones = document.querySelectorAll('.drop-zone');
-                dropZones.forEach(zone => {
+                document.querySelectorAll('.drop-zone').forEach(zone => {
                     const zRect = zone.getBoundingClientRect();
                     if (touch.clientX > zRect.left && touch.clientX < zRect.right &&
                         touch.clientY > zRect.top && touch.clientY < zRect.bottom) {
                         zone.classList.add('drag-over');
-                    } else {
-                        zone.classList.remove('drag-over');
-                    }
+                    } else zone.classList.remove('drag-over');
                 });
             }, { passive: false });
 
             el.addEventListener('touchend', (e) => {
                 if (!currentDragged) return;
                 const touch = e.changedTouches[0];
-                const dropZones = document.querySelectorAll('.drop-zone');
-                
-                dropZones.forEach(zone => {
-                    const zRect = zone.getBoundingClientRect();
+                document.querySelectorAll('.drop-zone').forEach(zone => {
                     zone.classList.remove('drag-over');
+                    const zRect = zone.getBoundingClientRect();
                     if (touch.clientX > zRect.left && touch.clientX < zRect.right &&
                         touch.clientY > zRect.top && touch.clientY < zRect.bottom) {
-                        if (zone.dataset.id === it.id) {
-                            handleMatchSuccess(it, zone);
-                        } else {
-                            zone.classList.add('shake');
-                            setTimeout(() => zone.classList.remove('shake'), 500);
-                        }
+                        if (zone.dataset.id === it.id) handleMatchSuccess(it, zone);
+                        else { zone.classList.add('shake'); setTimeout(() => zone.classList.remove('shake'), 500); }
                     }
                 });
-
-                if (currentDragged && currentDragged.parentNode) {
-                    document.body.removeChild(currentDragged);
-                }
+                if (currentDragged.parentNode) document.body.removeChild(currentDragged);
                 currentDragged = null;
                 el.classList.remove('dragging');
             });
@@ -450,11 +352,13 @@
 
         function nextMatchRound() {
             document.getElementById('nextRoundPulse').classList.add('hidden');
-            const poolSize = Math.min(gamePool.length, 5);
-            const items = [...gamePool].sort(() => Math.random() - 0.5).slice(0, poolSize);
+            // 重要：再次過濾 gamePool 確保拿到的 5 個都有 POJ
+            let validItems = gamePool.filter(i => i.poj && i.poj.trim() !== "");
+            const poolSize = Math.min(validItems.length, 5);
+            const items = [...validItems].sort(() => Math.random() - 0.5).slice(0, poolSize);
             
-            currentMatchCount = 0; // 重置配對計數
-            currentRoundTotal = poolSize; // 記錄本回合總數
+            currentMatchCount = 0;
+            currentRoundTotal = poolSize;
 
             const wordsCol = document.getElementById('matchWordsCol');
             const pojCol = document.getElementById('matchPojCol');
@@ -465,72 +369,49 @@
             
             words.forEach(it => {
                 const div = document.createElement('div');
-                div.id = `drag-${it.id}`; 
-                div.draggable = true; 
-                div.className = 'draggable p-3 sm:p-4 bg-white border-2 border-indigo-100 rounded-xl font-bold text-lg sm:text-xl text-center shadow-sm relative pt-6';
+                div.id = `drag-${it.id}`; div.draggable = true;
+                div.className = 'draggable p-3 sm:p-4 bg-white border-2 border-indigo-100 rounded-xl font-bold text-lg text-center shadow-sm relative pt-6';
                 div.innerHTML = `<span class="absolute top-1 left-2 text-[9px] text-slate-300">#${it.dbIndex}</span>${it.word}`;
-                
-                div.ondragstart = (e) => {
-                    if (div.classList.contains('matched-item')) { e.preventDefault(); return; }
-                    e.dataTransfer.setData('text', it.id);
-                    div.classList.add('dragging');
-                };
+                div.ondragstart = (e) => { e.dataTransfer.setData('text', it.id); div.classList.add('dragging'); };
                 div.ondragend = () => div.classList.remove('dragging');
-                
                 enableTouchDrag(div, it);
                 wordsCol.appendChild(div);
             });
 
             pojs.forEach(it => {
                 const div = document.createElement('div');
-                div.className = 'drop-zone p-3 sm:p-4 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl font-mono text-sm sm:text-base text-center font-bold flex items-center justify-center min-h-[60px]';
+                div.className = 'drop-zone p-3 sm:p-4 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl font-mono text-sm text-center font-bold flex items-center justify-center min-h-[60px]';
                 div.innerText = it.poj;
                 div.dataset.id = it.id;
                 div.ondragover = (e) => { e.preventDefault(); div.classList.add('drag-over'); };
                 div.ondragleave = () => div.classList.remove('drag-over');
                 div.ondrop = (e) => {
                     e.preventDefault();
-                    div.classList.remove('drag-over');
                     const draggedId = e.dataTransfer.getData('text');
-                    if (draggedId === it.id) {
-                        handleMatchSuccess(it, div);
-                    } else {
-                        div.classList.add('shake');
-                        setTimeout(() => div.classList.remove('shake'), 500);
-                    }
+                    if (draggedId === it.id) handleMatchSuccess(it, div);
+                    else { div.classList.add('shake'); setTimeout(() => div.classList.remove('shake'), 500); }
+                    div.classList.remove('drag-over');
                 };
                 pojCol.appendChild(div);
             });
         }
 
         function handleMatchSuccess(item, zone) {
-            // 避免重複配對同一個目標
             if (zone.classList.contains('matched-target')) return;
-            
             gameScore += 20;
-            currentMatchCount++; // 增加已配對計數
-            
+            currentMatchCount++;
             document.getElementById('matchScore').innerText = gameScore;
             playAudio(item.audio);
             
-            zone.className = 'p-3 sm:p-4 bg-green-100 border-2 border-green-500 rounded-xl font-bold text-sm sm:text-base text-center text-green-700 flex items-center justify-center min-h-[60px] matched-target';
+            zone.className = 'p-3 sm:p-4 bg-green-100 border-2 border-green-500 rounded-xl font-bold text-sm text-center text-green-700 flex items-center justify-center min-h-[60px] matched-target';
             zone.innerText = `✅ ${item.word}`;
-            zone.classList.remove('drop-zone');
-
+            
             const origin = document.getElementById(`drag-${item.id}`);
-            if (origin) {
-                origin.classList.add('matched-item');
-                origin.draggable = false;
-                origin.classList.remove('dragging');
-            }
+            if (origin) origin.classList.add('matched-item');
 
-            // 使用明確計數器檢查是否完成回合，避免 DOM 查詢延遲
             if (currentMatchCount >= currentRoundTotal) {
                 document.getElementById('nextRoundPulse').classList.remove('hidden');
-                // 延遲一段時間進入下一題，確保語音播完且視覺上有反饋
-                setTimeout(() => {
-                    nextMatchRound();
-                }, 1200);
+                setTimeout(nextMatchRound, 1200);
             }
         }
 
@@ -554,23 +435,12 @@
             document.getElementById('navStudy').classList.remove('bg-white', 'text-indigo-600');
         };
         document.getElementById('categorySelect').onchange = () => { currentPage = 1; renderGrid(); };
-        document.getElementById('toggleFavorites').onclick = () => { 
-            document.getElementById('toggleFavorites').classList.toggle('bg-amber-100'); 
-            currentPage = 1; renderGrid(); 
-        };
+        document.getElementById('toggleFavorites').onclick = () => { document.getElementById('toggleFavorites').classList.toggle('bg-amber-100'); currentPage = 1; renderGrid(); };
         document.getElementById('pageSelect').onchange = (e) => { currentPage = parseInt(e.target.value); renderGrid(); };
         document.getElementById('prevPage').onclick = () => { if (currentPage > 1) { currentPage--; renderGrid(); } };
         document.getElementById('nextPage').onclick = () => { if (currentPage < Math.ceil(filteredData.length / pageSize)) { currentPage++; renderGrid(); } };
-        document.getElementById('playPageBtn').onclick = () => startAutoPlay(false);
-        document.getElementById('playAllBtn').onclick = () => startAutoPlay(true);
-        document.getElementById('stopPlayBtn').onclick = stopAutoPlay;
         document.getElementById('startGameBtn').onclick = startGame;
-        document.querySelectorAll('.exit-game-btn').forEach(b => b.onclick = () => {
-            document.getElementById('gamePlayListen').classList.add('hidden');
-            document.getElementById('gamePlayMatch').classList.add('hidden');
-            document.getElementById('gameResultScreen').classList.add('hidden');
-            document.getElementById('gameStartScreen').classList.remove('hidden');
-        });
+        document.querySelectorAll('.exit-game-btn').forEach(b => b.onclick = () => location.reload());
         document.getElementById('listenMainAudioBtn').onclick = () => playAudio(currentQuestion.audio);
 
         init();
