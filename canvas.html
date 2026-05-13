@@ -319,7 +319,7 @@
             audioPlayer.pause();
         }
 
-        // --- 修正後的遊戲邏輯 ---
+        // --- 遊戲邏輯 ---
         function startGame() {
             gamePool = [...filteredData];
             if (gamePool.length < 4) {
@@ -382,7 +382,7 @@
             playAudio(currentQuestion.audio);
         }
 
-        function enableTouchDrag(el, onMatch) {
+        function enableTouchDrag(el, it, onMatch) {
             let startX, startY, initialX, initialY;
             let currentDragged = null;
 
@@ -432,13 +432,20 @@
                 if (!currentDragged) return;
                 const touch = e.changedTouches[0];
                 const dropZones = document.querySelectorAll('.drop-zone');
+                let foundMatch = false;
                 
                 dropZones.forEach(zone => {
                     const zRect = zone.getBoundingClientRect();
                     zone.classList.remove('drag-over');
                     if (touch.clientX > zRect.left && touch.clientX < zRect.right &&
                         touch.clientY > zRect.top && touch.clientY < zRect.bottom) {
-                        onMatch(zone);
+                        if (zone.dataset.id === it.id) {
+                            foundMatch = true;
+                            handleMatchSuccess(it, zone);
+                        } else {
+                            zone.classList.add('shake');
+                            setTimeout(() => zone.classList.remove('shake'), 500);
+                        }
                     }
                 });
 
@@ -472,10 +479,10 @@
                     div.classList.add('dragging');
                 };
                 div.ondragend = () => div.classList.remove('dragging');
-                enableTouchDrag(div, (targetZone) => {
-                    if (targetZone.dataset.id === it.id) handleMatchSuccess(it, targetZone);
-                    else { targetZone.classList.add('shake'); setTimeout(() => targetZone.classList.remove('shake'), 500); }
-                });
+                
+                // 修正手機版的拖放呼叫邏輯
+                enableTouchDrag(div, it);
+                
                 wordsCol.appendChild(div);
             });
 
@@ -489,9 +496,13 @@
                 div.ondrop = (e) => {
                     e.preventDefault();
                     div.classList.remove('drag-over');
-                    const draggedId = e.dataTransfer.setData('text', it.id); // Fixed data transfer
-                    if (e.dataTransfer.getData('text') === it.id) handleMatchSuccess(it, div);
-                    else { div.classList.add('shake'); setTimeout(() => div.classList.remove('shake'), 500); }
+                    const draggedId = e.dataTransfer.getData('text');
+                    if (draggedId === it.id) {
+                        handleMatchSuccess(it, div);
+                    } else {
+                        div.classList.add('shake');
+                        setTimeout(() => div.classList.remove('shake'), 500);
+                    }
                 };
                 pojCol.appendChild(div);
             });
@@ -502,10 +513,19 @@
             gameScore += 20;
             document.getElementById('matchScore').innerText = gameScore;
             playAudio(item.audio);
+            
+            // 標記區塊為成功配對
             zone.className = 'p-3 sm:p-4 bg-green-100 border-2 border-green-500 rounded-xl font-bold text-sm sm:text-base text-center text-green-700 flex items-center justify-center min-h-[60px]';
             zone.innerText = `✅ ${item.word}`;
+            zone.classList.remove('drop-zone'); // 移除配對區標記
+
             const origin = document.getElementById(`drag-${item.id}`);
-            if (origin) { origin.classList.add('matched-item'); origin.draggable = false; }
+            if (origin) {
+                origin.classList.add('matched-item');
+                origin.draggable = false;
+            }
+
+            // 檢查是否還有未配對的項目 (電腦版與手機版通用檢查)
             const remaining = document.querySelectorAll('.draggable:not(.matched-item)');
             if (remaining.length === 0) {
                 document.getElementById('nextRoundPulse').classList.remove('hidden');
